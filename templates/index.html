@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>腳本拆解機</title>
+<style>
+  :root{
+    --bg-dark:#15141a;
+    --bg-dark2:#1e1c24;
+    --card:#f6f1e6;
+    --card-border:#e6dcc6;
+    --text-dark:#2b2620;
+    --muted:#8a8272;
+    --gold:#d9a441;
+    --gold-dark:#b9852c;
+    --danger:#b5566a;
+    --ok:#4d7a52;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;
+    background:var(--bg-dark); color:#eee; min-height:100vh;
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 20px; background:var(--bg-dark2); border-bottom:1px solid #2b2933;
+    position:sticky; top:0; z-index:20;
+  }
+  header h1{ font-size:20px; margin:0; font-weight:700; letter-spacing:.5px; }
+  header .sub{ font-size:12px; color:#a29cb3; margin-top:2px; }
+  .icon-btn{
+    background:#2b2933; border:1px solid #3a3745; color:#eee; border-radius:10px;
+    width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:18px;
+  }
+  .icon-btn:hover{ background:#38364280; }
+
+  .layout{ display:flex; max-width:1200px; margin:0 auto; }
+  .sidebar{
+    width:230px; flex-shrink:0; padding:16px 12px; border-right:1px solid #2b2933;
+    min-height:calc(100vh - 70px);
+  }
+  .sidebar h2{ font-size:12px; text-transform:uppercase; color:#8f8aa0; margin:6px 8px 10px; letter-spacing:1px;}
+  .product-item{
+    padding:10px 12px; border-radius:10px; cursor:pointer; font-size:13px; color:#ddd;
+    margin-bottom:4px; display:flex; justify-content:space-between; align-items:center; gap:6px;
+  }
+  .product-item:hover{ background:#252331; }
+  .product-item.active{ background:#332c1b; color:var(--gold); }
+  .product-item .del{ opacity:.5; font-size:12px; }
+  .product-item .del:hover{ opacity:1; color:var(--danger); }
+  .new-product-btn{
+    width:100%; padding:10px; border-radius:10px; border:1px dashed #4a4658; background:none;
+    color:#bbb; cursor:pointer; font-size:13px; margin-bottom:14px;
+  }
+  .new-product-btn:hover{ border-color:var(--gold); color:var(--gold); }
+
+  main{ flex:1; padding:20px; min-width:0; }
+
+  .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  .tab{
+    padding:10px 16px; border-radius:10px; background:#221f2b; border:1px solid #322e3d;
+    color:#bbb; cursor:pointer; font-size:14px; white-space:nowrap; position:relative;
+  }
+  .tab.active{ border-color:var(--gold); color:var(--gold); background:#2c2717; }
+  .tab .dot{
+    display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ok);
+    margin-left:6px; vertical-align:middle;
+  }
+  .tab.locked{ opacity:.45; cursor:not-allowed; }
+
+  .card{
+    background:var(--card); color:var(--text-dark); border-radius:var(--radius);
+    border:1px solid var(--card-border); padding:22px; min-height:300px;
+  }
+  .card h2{ margin:0 0 4px; font-size:22px; }
+  .card .desc{ color:var(--muted); font-size:13px; margin-bottom:18px; }
+
+  label{ display:block; font-size:13px; font-weight:600; margin:14px 0 6px; }
+  label .opt{ font-weight:400; color:var(--muted); }
+  input[type=text], input[type=password], textarea, select{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid #ddd0ac;
+    background:#fff; font-size:14px; font-family:inherit; color:var(--text-dark);
+  }
+  textarea{ min-height:90px; resize:vertical; }
+  input:focus, textarea:focus, select:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; padding:12px 20px; border-radius:10px;
+    border:none; font-size:14px; font-weight:600; cursor:pointer; background:var(--gold); color:#2b2100;
+  }
+  .btn:hover{ background:var(--gold-dark); }
+  .btn.secondary{ background:#e7ddc4; color:var(--text-dark); }
+  .btn.secondary:hover{ background:#ddd0a6; }
+  .btn.ghost{ background:transparent; border:1px solid #ccc0a0; color:var(--text-dark); }
+  .btn.small{ padding:6px 12px; font-size:12px; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
+
+  .info-block{ background:#fff; border:1px solid var(--card-border); border-radius:10px; padding:14px 16px; margin-bottom:12px; }
+  .info-block .label{ font-size:12px; color:var(--muted); font-weight:600; margin-bottom:4px; }
+  .info-block .value{ font-size:14px; line-height:1.6; }
+  ul.plain{ margin:6px 0 0; padding-left:18px; }
+  ul.plain li{ margin-bottom:4px; font-size:14px; line-height:1.5; }
+
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  .chip{ background:#efe6cc; border:1px solid #ddcf9f; border-radius:20px; padding:6px 12px; font-size:13px; }
+  .arc-flow{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:14px; margin-top:6px; }
+  .arc-flow .seg{ background:#fff; border:1px solid var(--card-border); padding:6px 12px; border-radius:8px; }
+  .arc-flow .arrow{ color:var(--muted); }
+
+  .title-option{
+    display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border:1px solid var(--card-border);
+    border-radius:10px; background:#fff; margin-bottom:8px; cursor:pointer;
+  }
+  .title-option.selected{ border-color:var(--gold); background:#fdf6e3; }
+  .title-option input{ width:auto; margin-top:3px; }
+
+  .sentence-card{
+    background:#fff; border:1px solid var(--card-border); border-radius:12px; padding:16px 18px; margin-bottom:14px;
+  }
+  .sentence-card .idx{
+    display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%;
+    background:var(--gold); color:#2b2100; font-size:12px; font-weight:700; margin-right:8px;
+  }
+  .sentence-card .text{ font-size:16px; line-height:1.7; margin:8px 0 10px; }
+  .sentence-card .purpose{ font-size:13px; color:var(--muted); margin-bottom:8px; }
+  .sentence-card .shot{ font-size:13px; color:#6b5a3a; background:#faf3df; border:1px solid #ecdfb8; border-radius:8px; padding:8px 10px; margin-top:10px; }
+  .tag{ display:inline-block; color:#fff; border-radius:14px; padding:3px 11px; font-size:12px; margin-right:6px; }
+  .sentence-actions{ margin-top:10px; }
+
+  .banner{ padding:12px 16px; border-radius:10px; font-size:13px; margin-bottom:16px; display:flex; justify-content:space-between; gap:10px; align-items:center; }
+  .banner.error{ background:#fbe4e8; color:#8a1f36; border:1px solid #f0b7c2; }
+  .banner.info{ background:#eef3ee; color:#2c4a30; border:1px solid #c9dccb; }
+  .banner.warn{ background:#fbf1de; color:#6b4a12; border:1px solid #eed6a5; }
+
+  .stat-row{ display:flex; gap:16px; flex-wrap:wrap; margin:14px 0; }
+  .stat{ background:#fff; border:1px solid var(--card-border); border-radius:10px; padding:10px 16px; font-size:13px; }
+  .stat b{ display:block; font-size:18px; color:var(--gold-dark); }
+
+  .spinner{
+    width:16px; height:16px; border:2px solid rgba(0,0,0,.15); border-top-color:var(--gold-dark);
+    border-radius:50%; animation:spin .7s linear infinite; display:inline-block;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:50;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal{ background:var(--card); color:var(--text-dark); border-radius:var(--radius); width:min(480px, 92vw); padding:24px; max-height:88vh; overflow:auto; }
+  .modal h3{ margin:0 0 4px; }
+  .modal .sub{ color:var(--muted); font-size:12px; margin-bottom:18px; }
+  .modal-close{ float:right; cursor:pointer; font-size:18px; color:var(--muted); }
+  .field-hint{ font-size:12px; color:var(--muted); margin-top:4px; }
+  .checkbox-row{ display:flex; align-items:center; gap:8px; margin-top:14px; }
+  .checkbox-row input{ width:auto; }
+
+  footer{ text-align:center; padding:24px; color:#605c6e; font-size:12px; }
+
+  @media (max-width: 760px){
+    .layout{ flex-direction:column; }
+    .sidebar{ width:100%; border-right:none; border-bottom:1px solid #2b2933; min-height:auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>腳本拆解機</h1>
+    <div class="sub">你心裡的那句話，值得被說出來。放膽試試看，寫壞了也沒關係。</div>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <a class="icon-btn" href="/logout" title="登出" style="text-decoration:none; display:flex; align-items:center; justify-content:center;">⎋</a>
+    <button class="icon-btn" id="settingsBtn" title="設定 API">⚙</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <button class="new-product-btn" id="newProductBtn">＋ 新增產品</button>
+    <h2>已儲存的產品</h2>
+    <div id="productList"></div>
+  </aside>
+
+  <main>
+    <div id="banners"></div>
+
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-tab="product">產品資訊</div>
+      <div class="tab locked" data-tab="positioning">內容定位<span class="dot" style="display:none"></span></div>
+      <div class="tab locked" data-tab="audience">受眾確認<span class="dot" style="display:none"></span></div>
+      <div class="tab locked" data-tab="emotion">情緒與標題<span class="dot" style="display:none"></span></div>
+      <div class="tab locked" data-tab="script">逐字稿<span class="dot" style="display:none"></span></div>
+      <div class="tab locked" data-tab="summary">總結<span class="dot" style="display:none"></span></div>
+    </div>
+
+    <div class="card" id="cardArea"></div>
+  </main>
+</div>
+
+<footer>腳本拆解機 · 本機執行，API 金鑰只在你的電腦與你選的供應商之間傳遞</footer>
+
+<!-- 設定 Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <span class="modal-close" id="closeSettings">✕</span>
+    <h3>API 設定</h3>
+    <div class="sub">選擇供應商並填入金鑰。金鑰只會存在這台電腦上。</div>
+
+    <label>API 供應商</label>
+    <select id="providerSelect">
+      <option value="anthropic">Anthropic（Claude）</option>
+      <option value="openai">OpenAI（GPT）</option>
+      <option value="custom">自訂 OpenAI 相容 API（DeepSeek／Kimi／Qwen／自架服務…）</option>
+    </select>
+
+    <label>API 金鑰</label>
+    <input type="password" id="apiKeyInput" placeholder="已儲存金鑰時留空＝沿用原本的" autocomplete="off" />
+    <div class="field-hint" id="apiKeyHint"></div>
+
+    <label>模型名稱 <span class="opt">（選填，留空用預設值）</span></label>
+    <input type="text" id="modelInput" placeholder="例如：claude-sonnet-4-5-20250929" />
+
+    <div id="baseUrlField" style="display:none">
+      <label>Base URL <span class="opt">（自訂供應商必填）</span></label>
+      <input type="text" id="baseUrlInput" placeholder="例如：https://api.deepseek.com/v1" />
+      <div class="field-hint">常用服務快速填入（會一併帶入建議的模型名稱，如有更新請自行調整）：</div>
+      <div class="chip-row" id="presetRow" style="margin-top:6px">
+        <span class="chip" style="cursor:pointer" data-preset="gemini">Google Gemini</span>
+        <span class="chip" style="cursor:pointer" data-preset="deepseek">DeepSeek</span>
+        <span class="chip" style="cursor:pointer" data-preset="moonshot">Kimi（Moonshot）</span>
+        <span class="chip" style="cursor:pointer" data-preset="qwen">通義千問（DashScope）</span>
+      </div>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="persistCheckbox" />
+      <label style="margin:0">記住在本機（寫入 config.local.json，明文儲存）</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="mockCheckbox" />
+      <label style="margin:0">Mock 測試模式（不呼叫任何 API，先看畫面跟流程）</label>
+    </div>
+
+    <div id="settingsBanner"></div>
+
+    <div class="btn-row">
+      <button class="btn ghost" id="testConnBtn">測試連線</button>
+      <button class="btn" id="saveSettingsBtn">儲存設定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const EMOTION_TAG_COLORS = {
+  "故事":"#5b4a3f", "稀缺感":"#4a3f36", "認同":"#c99a3a", "恐懼":"#3f5a45",
+  "慾望":"#b5566a", "利益":"#c9862f", "權威感":"#3a4a63", "真實感":"#3f6b63", "社會證明":"#4d7a52"
+};
+function tagColor(tag){ return EMOTION_TAG_COLORS[tag] || "#6b6456"; }
+
+const state = {
+  product: { name:"", details:"", audience:"", price:"" },
+  positioning: null, audience: null, emotionTitle: null, script: null, summary: null,
+  selectedTitle: null,
+  activeTab: "product",
+  loading: false,
+  currentProductId: null,
+  config: { provider:"anthropic", model:"", base_url:"", has_api_key:false },
+  mock: false,
+};
+
+const STORAGE_KEY = "script_breaker_products_v1";
+
+function loadSavedProducts(){
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+  catch(e){ return []; }
+}
+function persistSavedProducts(list){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+function saveCurrentAsProduct(){
+  if(!state.product.name) return;
+  const list = loadSavedProducts();
+  const id = state.currentProductId || (Date.now() + "-" + Math.random().toString(36).slice(2,7));
+  state.currentProductId = id;
+  const entry = {
+    id, name: state.product.name,
+    data: {
+      product: state.product, positioning: state.positioning, audience: state.audience,
+      emotionTitle: state.emotionTitle, script: state.script, summary: state.summary,
+      selectedTitle: state.selectedTitle,
+    }
+  };
+  const idx = list.findIndex(p => p.id === id);
+  if(idx >= 0) list[idx] = entry; else list.unshift(entry);
+  persistSavedProducts(list);
+  renderProductList();
+}
+function loadProduct(id){
+  const list = loadSavedProducts();
+  const entry = list.find(p => p.id === id);
+  if(!entry) return;
+  state.currentProductId = id;
+  state.product = entry.data.product;
+  state.positioning = entry.data.positioning;
+  state.audience = entry.data.audience;
+  state.emotionTitle = entry.data.emotionTitle;
+  state.script = entry.data.script;
+  state.selectedTitle = entry.data.selectedTitle;
+  state.summary = entry.data.summary;
+  switchTab("product");
+  renderAll();
+}
+function deleteProduct(id, ev){
+  ev.stopPropagation();
+  let list = loadSavedProducts().filter(p => p.id !== id);
+  persistSavedProducts(list);
+  if(state.currentProductId === id) resetProduct();
+  renderProductList();
+}
+function resetProduct(){
+  state.currentProductId = null;
+  state.product = { name:"", details:"", audience:"", price:"" };
+  state.positioning = null; state.audience = null; state.emotionTitle = null;
+  state.script = null; state.summary = null; state.selectedTitle = null;
+  switchTab("product");
+  renderAll();
+}
+function renderProductList(){
+  const list = loadSavedProducts();
+  const el = document.getElementById("productList");
+  if(list.length === 0){
+    el.innerHTML = '<div style="color:#7a7690;font-size:12px;padding:6px 8px;">尚未儲存任何產品</div>';
+    return;
+  }
+  el.innerHTML = list.map(p => `
+    <div class="product-item ${p.id===state.currentProductId?'active':''}" onclick="loadProduct('${p.id}')">
+      <span>${escapeHtml(p.name)}</span>
+      <span class="del" onclick="deleteProduct('${p.id}', event)">✕</span>
+    </div>
+  `).join("");
+}
+
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function api(path, body){
+  const res = await fetch(path, {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(body || {}),
+  });
+  return res.json();
+}
+
+function showBanner(type, msg, containerId){
+  const container = document.getElementById(containerId || "banners");
+  container.innerHTML = `<div class="banner ${type}"><span>${escapeHtml(msg)}</span><span style="cursor:pointer" onclick="this.parentElement.remove()">✕</span></div>`;
+}
+function clearBanners(containerId){
+  document.getElementById(containerId || "banners").innerHTML = "";
+}
+
+function setLoading(v){ state.loading = v; renderCard(); }
+
+// ── Tabs ─────────────────────────────────────────────────────────
+
+function tabUnlocked(tab){
+  if(tab === "product") return true;
+  if(tab === "positioning") return !!state.positioning;
+  if(tab === "audience") return !!state.audience;
+  if(tab === "emotion") return !!state.emotionTitle;
+  if(tab === "script") return !!state.script;
+  if(tab === "summary") return !!state.summary;
+  return false;
+}
+function switchTab(tab){
+  if(!tabUnlocked(tab)) return;
+  state.activeTab = tab;
+  renderTabs();
+  renderCard();
+}
+function renderTabs(){
+  document.querySelectorAll(".tab").forEach(el => {
+    const t = el.dataset.tab;
+    el.classList.toggle("active", t === state.activeTab);
+    el.classList.toggle("locked", !tabUnlocked(t));
+    const dot = el.querySelector(".dot");
+    if(dot) dot.style.display = tabUnlocked(t) && t !== "product" ? "inline-block" : "none";
+  });
+}
+
+document.getElementById("tabs").addEventListener("click", e => {
+  const tab = e.target.closest(".tab");
+  if(tab) switchTab(tab.dataset.tab);
+});
+
+// ── 各分頁渲染 ────────────────────────────────────────────────────
+
+function renderCard(){
+  const el = document.getElementById("cardArea");
+  const loadingHtml = state.loading ? `<div class="banner info"><span class="spinner"></span>&nbsp;生成中，請稍候…</div>` : "";
+
+  if(state.activeTab === "product"){
+    el.innerHTML = `
+      <h2>產品資訊</h2>
+      <div class="desc">填好之後點「開始拆解」，會依序產生內容定位、受眾確認、情緒與標題、逐字稿與總結。</div>
+      ${loadingHtml}
+      <label>產品名稱</label>
+      <input type="text" id="fName" placeholder="例如：無線頸掛風扇" value="${escapeHtml(state.product.name)}" />
+      <label>產品細節（成分／材質／規格／使用方式，越詳細越好）</label>
+      <textarea id="fDetails" placeholder="例如：三段風速、USB-C 快充、可拆洗濾網、續航 8 小時…">${escapeHtml(state.product.details)}</textarea>
+      <label>目標受眾 <span class="opt">選填</span></label>
+      <input type="text" id="fAudience" placeholder="例如：通勤上班族、新手媽媽" value="${escapeHtml(state.product.audience)}" />
+      <label>價格帶 <span class="opt">選填</span></label>
+      <input type="text" id="fPrice" placeholder="例如：NT$690" value="${escapeHtml(state.product.price)}" />
+      <div class="btn-row">
+        <button class="btn" id="startBtn" ${state.loading?"disabled":""}>開始拆解</button>
+      </div>
+    `;
+    document.getElementById("startBtn").onclick = onStartClicked;
+    ["fName","fDetails","fAudience","fPrice"].forEach(id => {
+      document.getElementById(id).addEventListener("input", e => {
+        const map = {fName:"name", fDetails:"details", fAudience:"audience", fPrice:"price"};
+        state.product[map[id]] = e.target.value;
+      });
+    });
+  }
+
+  else if(state.activeTab === "positioning"){
+    const p = state.positioning || {};
+    el.innerHTML = `
+      <h2>內容定位</h2>
+      <div class="desc">這支影片的核心切角與差異化定位。</div>
+      ${loadingHtml}
+      <div class="info-block"><div class="label">核心切角</div><div class="value">${escapeHtml(p.core_angle||"")}</div></div>
+      <div class="info-block"><div class="label">差異化定位</div><div class="value">${escapeHtml(p.differentiation||"")}</div></div>
+      <div class="info-block"><div class="label">建議影片形式</div><div class="value">${escapeHtml(p.format_suggestion||"")}</div></div>
+      <div class="info-block"><div class="label">關鍵賣點</div>
+        <ul class="plain">${(p.key_selling_points||[]).map(k=>`<li>${escapeHtml(k)}</li>`).join("")}</ul>
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" id="regenPositioning" ${state.loading?"disabled":""}>重新產出</button>
+        <button class="btn" id="toAudience" ${state.loading?"disabled":""}>下一步：受眾確認</button>
+      </div>
+    `;
+    document.getElementById("regenPositioning").onclick = () => runStep("positioning", true);
+    document.getElementById("toAudience").onclick = () => runStep("audience");
+  }
+
+  else if(state.activeTab === "audience"){
+    const a = state.audience || {};
+    el.innerHTML = `
+      <h2>受眾確認</h2>
+      <div class="desc">具體化的目標受眾輪廓、痛點、渴望與購買前的顧慮。</div>
+      ${loadingHtml}
+      <div class="info-block"><div class="label">受眾輪廓</div><div class="value">${escapeHtml(a.audience_profile||"")}</div></div>
+      <div class="info-block"><div class="label">痛點</div><ul class="plain">${(a.pain_points||[]).map(k=>`<li>${escapeHtml(k)}</li>`).join("")}</ul></div>
+      <div class="info-block"><div class="label">渴望</div><ul class="plain">${(a.desires||[]).map(k=>`<li>${escapeHtml(k)}</li>`).join("")}</ul></div>
+      <div class="info-block"><div class="label">購買顧慮</div><ul class="plain">${(a.objections||[]).map(k=>`<li>${escapeHtml(k)}</li>`).join("")}</ul></div>
+      <div class="btn-row">
+        <button class="btn secondary" id="regenAudience" ${state.loading?"disabled":""}>重新產出</button>
+        <button class="btn" id="toEmotion" ${state.loading?"disabled":""}>下一步：情緒與標題</button>
+      </div>
+    `;
+    document.getElementById("regenAudience").onclick = () => runStep("audience", true);
+    document.getElementById("toEmotion").onclick = () => runStep("emotion");
+  }
+
+  else if(state.activeTab === "emotion"){
+    const e = state.emotionTitle || {};
+    const arc = e.emotion_arc || [];
+    const titles = e.title_options || [];
+    if(!state.selectedTitle) state.selectedTitle = e.recommended_title;
+    el.innerHTML = `
+      <h2>情緒與標題</h2>
+      <div class="desc">整支影片的情緒轉折順序，以及開頭鉤子／標題選項。</div>
+      ${loadingHtml}
+      <div class="info-block">
+        <div class="label">情緒轉折順序</div>
+        <div class="arc-flow">${arc.map((s,i)=> (i? '<span class="arrow">→</span>':'') + `<span class="seg">${escapeHtml(s)}</span>`).join("")}</div>
+      </div>
+      <div class="info-block">
+        <div class="label">標題／開頭鉤子選項（點選要採用的）</div>
+        ${titles.map(t => `
+          <div class="title-option ${t===state.selectedTitle?'selected':''}" onclick="selectTitle(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+            <input type="radio" name="titleOpt" ${t===state.selectedTitle?"checked":""} />
+            <span>${escapeHtml(t)}</span>
+          </div>
+        `).join("")}
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" id="regenEmotion" ${state.loading?"disabled":""}>換一批標題</button>
+        <button class="btn" id="toScript" ${state.loading?"disabled":""}>下一步：產生逐字稿</button>
+      </div>
+    `;
+    document.getElementById("regenEmotion").onclick = () => runStep("emotion", true);
+    document.getElementById("toScript").onclick = () => runStep("script");
+  }
+
+  else if(state.activeTab === "script"){
+    const s = state.script || {sentences:[]};
+    const sentences = s.sentences || [];
+    const totalChars = sentences.reduce((sum,x)=> sum + (x.text||"").length, 0);
+    const estSeconds = Math.round(totalChars / 4.3); // 中文口語約 4~4.5 字/秒
+    el.innerHTML = `
+      <h2>${escapeHtml(s.title || "完整逐字稿")}</h2>
+      <div class="desc">每句都標註設計目的與使用的情緒催化劑。</div>
+      ${loadingHtml}
+      <div class="stat-row">
+        <div class="stat"><b>${sentences.length}</b>句</div>
+        <div class="stat"><b>${totalChars}</b>字</div>
+        <div class="stat"><b>約 ${estSeconds}</b>秒（估計口白長度）</div>
+      </div>
+      <div id="sentenceList">${sentences.map(renderSentenceCard).join("")}</div>
+      <div class="btn-row">
+        <button class="btn secondary" id="regenScript" ${state.loading?"disabled":""}>重新產出逐字稿</button>
+        <button class="btn" id="toSummary" ${state.loading?"disabled":""}>下一步：總結</button>
+      </div>
+    `;
+    document.getElementById("regenScript").onclick = () => runStep("script", true);
+    document.getElementById("toSummary").onclick = () => runStep("summary");
+    sentences.forEach(s => {
+      const btn = document.getElementById(`rewrite-${s.index}`);
+      if(btn) btn.onclick = () => rewriteSentence(s.index);
+    });
+  }
+
+  else if(state.activeTab === "summary"){
+    const sum = state.summary || {};
+    el.innerHTML = `
+      <h2>總結</h2>
+      <div class="desc">這支影片會打中受眾的原因，與後續優化建議。</div>
+      ${loadingHtml}
+      <div class="info-block">
+        <div class="label">這支影片會打中受眾的原因</div>
+        <ul class="plain">${(sum.resonance_reasons||[]).map(r=>`<li>${escapeHtml(r)}</li>`).join("")}</ul>
+      </div>
+      <div class="info-block">
+        <div class="label">後續優化建議</div>
+        <ul class="plain">${(sum.suggested_next_steps||[]).map(r=>`<li>${escapeHtml(r)}</li>`).join("")}</ul>
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" id="regenSummary" ${state.loading?"disabled":""}>重新產出</button>
+        <button class="btn" id="copyBtn">複製完整逐字稿</button>
+        <button class="btn ghost" id="downloadMd">下載 Markdown</button>
+        <button class="btn ghost" id="downloadJson">下載 JSON</button>
+      </div>
+    `;
+    document.getElementById("regenSummary").onclick = () => runStep("summary", true);
+    document.getElementById("copyBtn").onclick = copyFullScript;
+    document.getElementById("downloadMd").onclick = downloadMarkdown;
+    document.getElementById("downloadJson").onclick = downloadJson;
+  }
+
+  renderTabs();
+}
+
+function renderSentenceCard(s){
+  const tags = (s.emotion_tags||[]).map(t => `<span class="tag" style="background:${tagColor(t)}">${escapeHtml(t)}</span>`).join("");
+  const shot = s.shot_suggestion
+    ? `<div class="shot">🎬 畫面建議：${escapeHtml(s.shot_suggestion)}</div>` : "";
+  return `
+    <div class="sentence-card">
+      <div><span class="idx">${s.index}</span><strong>第 ${s.index} 句</strong></div>
+      <div class="text">${escapeHtml(s.text)}</div>
+      <div class="purpose">設計目的：${escapeHtml(s.purpose||"")}</div>
+      <div>${tags}</div>
+      ${shot}
+      <div class="sentence-actions">
+        <button class="btn small ghost" id="rewrite-${s.index}">重寫這句</button>
+      </div>
+    </div>
+  `;
+}
+
+function selectTitle(t){
+  state.selectedTitle = t;
+  if(state.emotionTitle) state.emotionTitle.recommended_title = t;
+  renderCard();
+}
+
+// ── 呼叫後端 ─────────────────────────────────────────────────────
+
+async function onStartClicked(){
+  if(!state.product.name || !state.product.details){
+    showBanner("warn", "請至少填寫產品名稱與產品細節。");
+    return;
+  }
+  saveCurrentAsProduct();
+  await runStep("positioning");
+}
+
+async function runStep(step, forceRegen){
+  clearBanners();
+  setLoading(true);
+  try{
+    let path, body, applyResult;
+    const common = { product: state.product, mock: state.mock };
+
+    if(step === "positioning"){
+      path = "/api/step/positioning"; body = { ...common };
+      applyResult = d => { state.positioning = d; };
+    } else if(step === "audience"){
+      path = "/api/step/audience"; body = { ...common, positioning: state.positioning };
+      applyResult = d => { state.audience = d; };
+    } else if(step === "emotion"){
+      path = "/api/step/emotion_title"; body = { ...common, positioning: state.positioning, audience: state.audience };
+      applyResult = d => { state.emotionTitle = d; state.selectedTitle = d.recommended_title; };
+    } else if(step === "script"){
+      path = "/api/step/script";
+      body = { ...common, positioning: state.positioning, audience: state.audience,
+                emotion_title: state.emotionTitle };
+      applyResult = d => { state.script = d; };
+    } else if(step === "summary"){
+      path = "/api/step/summary"; body = { ...common, audience: state.audience, script: state.script };
+      applyResult = d => { state.summary = d; };
+    }
+
+    const res = await api(path, body);
+    if(!res.ok){
+      showBanner("error", res.error || "發生未知錯誤");
+      setLoading(false);
+      return;
+    }
+    applyResult(res.data);
+    setLoading(false);
+    if(!forceRegen){
+      const order = ["product","positioning","audience","emotion","script","summary"];
+      switchTab(order[order.indexOf(step)]);
+    } else {
+      renderCard();
+    }
+    saveCurrentAsProduct();
+  } catch(e){
+    setLoading(false);
+    showBanner("error", "無法連線到後端服務（請確認「啟動.bat」的黑色視窗還開著，沒被關掉）。技術訊息：" + e.message);
+  }
+}
+
+async function rewriteSentence(index){
+  setLoading(true);
+  try{
+    const res = await api("/api/step/rewrite_sentence", {
+      product: state.product, script: state.script, index, mock: state.mock,
+    });
+    if(!res.ok){
+      showBanner("error", res.error);
+      setLoading(false);
+      return;
+    }
+    const i = state.script.sentences.findIndex(s => s.index === index);
+    if(i >= 0) state.script.sentences[i] = res.data;
+    setLoading(false);
+    renderCard();
+    saveCurrentAsProduct();
+  } catch(e){
+    setLoading(false);
+    showBanner("error", "無法連線到後端服務（請確認「啟動.bat」的黑色視窗還開著，沒被關掉）。技術訊息：" + e.message);
+  }
+}
+
+function fullScriptText(){
+  const s = state.script || {sentences:[]};
+  return (s.sentences||[]).map(x => x.text).join("\n");
+}
+
+async function copyFullScript(){
+  try{
+    await navigator.clipboard.writeText(fullScriptText());
+    showBanner("info", "已複製完整逐字稿到剪貼簿。");
+  } catch(e){
+    showBanner("warn", "瀏覽器不允許自動複製，請手動選取文字複製。");
+  }
+}
+
+function triggerDownload(filename, content, mime){
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function downloadMarkdown(){
+  const res = await fetch("/api/export/markdown", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      product: state.product, positioning: state.positioning, audience: state.audience,
+      emotion_title: state.emotionTitle, script: state.script, summary: state.summary,
+    }),
+  });
+  const text = await res.text();
+  triggerDownload(`${state.product.name || "script"}.md`, text, "text/markdown");
+}
+
+function downloadJson(){
+  const data = {
+    product: state.product, positioning: state.positioning, audience: state.audience,
+    emotion_title: state.emotionTitle, script: state.script, summary: state.summary,
+  };
+  triggerDownload(`${state.product.name || "script"}.json`, JSON.stringify(data, null, 2), "application/json");
+}
+
+// ── 設定 Modal ────────────────────────────────────────────────────
+
+const settingsModal = document.getElementById("settingsModal");
+document.getElementById("settingsBtn").onclick = async () => {
+  await loadConfig();
+  settingsModal.classList.add("open");
+};
+document.getElementById("closeSettings").onclick = () => settingsModal.classList.remove("open");
+document.getElementById("providerSelect").onchange = e => {
+  document.getElementById("baseUrlField").style.display = e.target.value === "custom" ? "block" : "none";
+};
+
+// 常用 OpenAI 相容服務的一鍵預設值。模型名稱僅供參考，服務端更新後請自行修改。
+const CUSTOM_PRESETS = {
+  gemini:   { base_url: "https://generativelanguage.googleapis.com/v1beta/openai/", model: "gemini-3.6-flash",
+              note: "Google Gemini 的金鑰是 AIzaSy 開頭，走這個 OpenAI 相容端點即可使用，provider 請保持選在「自訂」。若模型名稱回報 404／已淘汰，請照 Google 錯誤訊息裡建議的最新名稱修改。" },
+  deepseek: { base_url: "https://api.deepseek.com/v1", model: "deepseek-chat" },
+  moonshot: { base_url: "https://api.moonshot.cn/v1", model: "moonshot-v1-8k" },
+  qwen:     { base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1", model: "qwen-plus" },
+};
+document.getElementById("presetRow").addEventListener("click", e => {
+  const chip = e.target.closest("[data-preset]");
+  if(!chip) return;
+  const preset = CUSTOM_PRESETS[chip.dataset.preset];
+  if(!preset) return;
+  document.getElementById("baseUrlInput").value = preset.base_url;
+  document.getElementById("modelInput").value = preset.model;
+  document.getElementById("settingsBanner").innerHTML =
+    `<div class="banner info">已帶入 ${escapeHtml(chip.textContent)} 的設定，記得貼上你自己的金鑰。${preset.note ? " " + escapeHtml(preset.note) : ""}</div>`;
+});
+
+// 依金鑰前綴粗略判斷是否選錯供應商，避免送出後才從錯誤訊息裡自己猜原因
+function detectKeyMismatch(provider, key){
+  if(!key) return null;
+  if(key.startsWith("AIzaSy")){
+    return provider === "custom" ? null :
+      "這組金鑰看起來是 Google Gemini 的金鑰（AIzaSy 開頭）。請把供應商改選「自訂 OpenAI 相容 API」，Base URL 用上面的「Google Gemini」快速填入按鈕。";
+  }
+  if(key.startsWith("sk-ant-")){
+    return provider === "anthropic" ? null : "這組金鑰看起來是 Anthropic（Claude）的金鑰，請把供應商改選「Anthropic」。";
+  }
+  if(key.startsWith("sk-") && provider === "anthropic"){
+    return "這組金鑰看起來不是 Anthropic 的金鑰格式（Anthropic 金鑰通常是 sk-ant- 開頭），請確認供應商選對了。";
+  }
+  return null;
+}
+
+// 選了「自訂」卻沒填 Base URL 的話，請求會偷偷送去官方 OpenAI，導致錯誤訊息一直叫你去
+// platform.openai.com 開金鑰——這裡先攔下來，不要讓使用者送出去才發現。
+function validateSettingsForm(body){
+  if(body.provider === "custom" && !body.base_url.trim()){
+    return "供應商選了「自訂 OpenAI 相容 API」，還沒填 Base URL。請點上面的快速填入按鈕，或自己貼上該服務的網址，不然請求會被送到官方 OpenAI 去。";
+  }
+  return detectKeyMismatch(body.provider, body.api_key);
+}
+
+function readSettingsForm(){
+  return {
+    provider: document.getElementById("providerSelect").value,
+    api_key: document.getElementById("apiKeyInput").value,
+    model: document.getElementById("modelInput").value,
+    base_url: document.getElementById("baseUrlInput").value,
+    persist: document.getElementById("persistCheckbox").checked,
+  };
+}
+
+async function loadConfig(){
+  const res = await fetch("/api/config");
+  const cfg = await res.json();
+  state.config = cfg;
+  document.getElementById("providerSelect").value = cfg.provider;
+  document.getElementById("modelInput").value = cfg.model || "";
+  document.getElementById("baseUrlInput").value = cfg.base_url || "";
+  document.getElementById("baseUrlField").style.display = cfg.provider === "custom" ? "block" : "none";
+  document.getElementById("apiKeyInput").value = "";
+  setApiKeyHint(cfg.has_api_key);
+  document.getElementById("persistCheckbox").checked = cfg.persisted;
+  document.getElementById("mockCheckbox").checked = state.mock;
+  document.getElementById("settingsBanner").innerHTML = "";
+}
+
+function setApiKeyHint(hasKey){
+  document.getElementById("apiKeyHint").innerHTML = hasKey
+    ? '<span style="color:#2c7a3d">✓ 目前已有儲存的金鑰。</span>這裡留空並不會清掉它，儲存時會自動沿用。'
+    : "尚未設定金鑰。";
+}
+
+document.getElementById("saveSettingsBtn").onclick = async () => {
+  const body = readSettingsForm();
+  const mismatch = validateSettingsForm(body);
+  if(mismatch){
+    document.getElementById("settingsBanner").innerHTML = `<div class="banner warn">${escapeHtml(mismatch)}</div>`;
+    return;
+  }
+  state.mock = document.getElementById("mockCheckbox").checked;
+  const res = await api("/api/config", body);
+  if(res.ok){
+    // 注意：金鑰欄位存完會清空，這是刻意的（後端不會把明文金鑰傳回瀏覽器顯示），
+    // 不是沒存到——下面的橫幅與提示文字會明確告訴你已經存好了。
+    const cfgRes = await fetch("/api/config");
+    const cfg = await cfgRes.json();
+    document.getElementById("apiKeyInput").value = "";
+    setApiKeyHint(cfg.has_api_key);
+    document.getElementById("persistCheckbox").checked = cfg.persisted;
+    document.getElementById("settingsBanner").innerHTML =
+      `<div class="banner info">✓ 設定已儲存（供應商：${escapeHtml(cfg.provider)}${cfg.has_api_key ? "，金鑰已記錄" : ""}）。金鑰欄位清空是正常的，不代表沒存到。</div>`;
+  } else {
+    document.getElementById("settingsBanner").innerHTML = `<div class="banner error">${escapeHtml(res.error||"儲存失敗")}</div>`;
+  }
+};
+
+document.getElementById("testConnBtn").onclick = async () => {
+  // 先暫存目前表單內容再測試（不強制存檔），避免使用者要先按儲存才能測試
+  const body = readSettingsForm();
+  const mismatch = validateSettingsForm(body);
+  if(mismatch){
+    document.getElementById("settingsBanner").innerHTML = `<div class="banner warn">${escapeHtml(mismatch)}</div>`;
+    return;
+  }
+  document.getElementById("settingsBanner").innerHTML = `<div class="banner info"><span class="spinner"></span>&nbsp;測試中…</div>`;
+  await api("/api/config", body);
+  const res = await api("/api/test-connection", {});
+  if(res.ok){
+    document.getElementById("settingsBanner").innerHTML = `<div class="banner info">${escapeHtml(res.data.message)}</div>`;
+  } else {
+    document.getElementById("settingsBanner").innerHTML = `<div class="banner error">${escapeHtml(res.error)}</div>`;
+  }
+};
+
+document.getElementById("newProductBtn").onclick = resetProduct;
+
+// ── 初始化 ────────────────────────────────────────────────────────
+
+(async function init(){
+  renderProductList();
+  renderCard();
+  renderTabs();
+  await loadConfig();
+})();
+</script>
+</body>
+</html>
