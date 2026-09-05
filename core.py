@@ -501,6 +501,60 @@ def step_rewrite_sentence(
     return result
 
 
+def step_revise_script(
+    cfg: ProviderConfig,
+    product: ProductInfo,
+    positioning: dict,
+    audience: dict,
+    emotion_and_title: dict,
+    script: dict,
+    feedback: str,
+    on_progress=None,
+) -> dict:
+    """依照使用者對故事內容提出的修改想法，調整既有的整篇逐字稿／故事——
+    跟 step_rewrite_sentence 不同的是這裡可以一次調整多句、甚至整體節奏，
+    但盡量保留使用者沒有要求修改的部分，不是整篇重新亂寫。"""
+    sentences = script.get("sentences", []) or []
+    sentence_count = len(sentences) or 12
+    schema = {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string", "description": "採用的標題/開頭鉤子"},
+            "sentences": {
+                "type": "array",
+                "description": f"調整後的逐字稿，依序約 {sentence_count} 句",
+                "items": _sentence_schema(),
+            },
+            "element_checklist": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "腳本自我檢查表，5-7 條，每條都寫成「標籤：具體說明這支腳本怎麼做到的」的完整句子"
+                ),
+            },
+        },
+        "required": ["title", "sentences", "element_checklist"],
+    }
+    system = (
+        "你是短影音廣告的逐字稿寫手兼分鏡師，現在要依照使用者對故事內容提出的修改想法來調整既有逐字稿，"
+        "而不是整篇重寫成完全不同的內容——除非使用者的想法本來就是要求大改，否則盡量保留原本沒被提到、"
+        "使用者沒有要求修改的句子與情節走向，只針對回饋的地方調整。全程使用繁體中文回覆。"
+    )
+    user = (
+        f"產品名稱：{product.name}\n"
+        f"產品細節：{product.details}\n"
+        f"內容定位：{json.dumps(positioning, ensure_ascii=False)}\n"
+        f"受眾洞察：{json.dumps(audience, ensure_ascii=False)}\n"
+        f"情緒與標題設計：{json.dumps(emotion_and_title, ensure_ascii=False)}\n"
+        f"原本的逐字稿／故事：{json.dumps(script, ensure_ascii=False)}\n\n"
+        f"使用者對故事內容提出的修改想法：{feedback}\n\n"
+        f"請依照這個想法調整逐字稿，維持約 {sentence_count} 句，"
+        "每句一樣要標註設計目的、使用的情緒催化劑（情緒標籤），以及這一句實際拍攝時的畫面建議，"
+        "最後也請附上一份更新後的腳本自我檢查表。"
+    )
+    return call_structured(cfg, system, user, schema, "revise_script", on_progress=on_progress)
+
+
 def step_summary(cfg: ProviderConfig, product: ProductInfo, audience: dict, script: dict, on_progress=None) -> dict:
     schema = {
         "type": "object",
@@ -670,10 +724,21 @@ def _competitor_prompt(product: ProductInfo, positioning: dict) -> str:
         "抖音商城等平台上目前看起來流量、評價、互動比較活躍的賣場或商品頁面（不是隨便找到就好，"
         "要主動避開明顯是殭屍賣場、零評價、內容農場式的低品質結果）。"
         "找 3-5 個參考，每個都要包含：賣場/商品名稱、重點摘要（他們用什麼切角寫文案、主打什麼賣點、"
-        "定價策略是什麼、有沒有值得借鏡或該避開的地方），並附上原始連結。\n\n"
+        "定價策略是什麼、有沒有值得借鏡或該避開的地方）。\n\n"
         f"我自己的產品名稱：{product.name}\n"
         f"產品細節：{product.details}\n"
         f"內容定位：{json.dumps(positioning, ensure_ascii=False)}\n\n"
+        "排版規則（很重要，請務必遵守）：\n"
+        "・絕對不要使用 Markdown 語法——不要出現 #、##、###、**、__、- 開頭的清單符號、"
+        "[文字](網址) 這種連結格式，也不要用「---」分隔線。\n"
+        "・改用純文字＋emoji排版，讀起來要像一般人整理的筆記，不要像程式文件。\n"
+        "・每個參考商品都用這個格式呈現（emoji 固定用這幾個，方便閱讀）：\n"
+        "🏪 賣場／商品名稱：___\n"
+        "🎯 文案切角：___\n"
+        "💰 定價策略：___\n"
+        "💡 值得借鏡或該避開的地方：___\n"
+        "・不需要在文字裡貼網址或用連結格式，原始連結會由系統另外附在下面的「參考來源」清單，不用重複。\n"
+        "・每個參考商品之間空一行，不要加分隔線或編號標題。\n\n"
         "請用繁體中文回覆，摘要精簡但要有具體洞察，不要只是條列賣場名稱。"
     )
 
@@ -840,9 +905,15 @@ def mock_competitor_references(product: ProductInfo) -> dict:
     return {
         "supported": True,
         "summary": (
-            f"（模擬資料）市場上跟「{product.name}」類似的熱銷商品，大多主打「情境代入＋前後對比」的切角，"
-            "文案節奏偏向先痛點、後解方，價格帶集中在中低價位並強調限時優惠與贈品，"
-            "評價高的賣場通常會放真人使用影片與素人見證強化信任感。"
+            f"（模擬資料）\n"
+            f"🏪 賣場／商品名稱：蝦皮熱銷賣場範例 —「{product.name}」類似款\n"
+            "🎯 文案切角：情境代入＋前後對比，先痛點、後解方\n"
+            "💰 定價策略：中低價位，強調限時優惠與贈品\n"
+            "💡 值得借鏡或該避開的地方：真人使用影片與素人見證強化信任感，值得借鏡\n\n"
+            "🏪 賣場／商品名稱：PChome 商品頁範例\n"
+            "🎯 文案切角：規格條列＋比較表，理性訴求為主\n"
+            "💰 定價策略：中價位，主打官方保固與正貨保證\n"
+            "💡 值得借鏡或該避開的地方：文案偏硬、缺乏情緒鉤子，是可以避開的做法"
         ),
         "sources": [
             {"title": "（模擬）蝦皮熱銷賣場範例", "url": "https://shopee.tw/"},

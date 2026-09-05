@@ -290,6 +290,28 @@ def api_rewrite_sentence():
     return _handle(run)
 
 
+@app.post("/api/step/revise_script")
+def api_revise_script():
+    data = request.get_json(force=True) or {}
+    product = _product_from_json(data.get("product", {}))
+    positioning = data.get("positioning", {})
+    audience = data.get("audience", {})
+    emotion_title = data.get("emotion_title", {})
+    script = data.get("script", {})
+    feedback = (data.get("feedback") or "").strip()
+
+    def run():
+        if not feedback:
+            raise core.GenerationError("請先在右邊輸入你想調整的想法，再送出。")
+        if data.get("mock"):
+            sentences = script.get("sentences", [])
+            updated = [{**s, "text": (s.get("text") or "") + "（已依回饋調整-模擬）"} for s in sentences]
+            return {**script, "sentences": updated}
+        return core.step_revise_script(_current_cfg, product, positioning, audience, emotion_title, script, feedback)
+
+    return _handle(run)
+
+
 @app.post("/api/step/summary")
 def api_summary():
     data = request.get_json(force=True) or {}
