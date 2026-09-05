@@ -392,7 +392,7 @@ const STORY_LENGTH_PRESETS = [
 
 const state = {
   product: { name:"", details:"", audience:"", price:"", emotion:"", story_request:"", story_length:"" },
-  positioning: null, audience: null, emotionTitle: null, script: null, summary: null,
+  positioning: null, audience: null, emotionTitle: null, script: null, story: null, summary: null,
   selectedTitle: null,
   activeTab: "product",
   loading: false,
@@ -427,7 +427,7 @@ function saveCurrentAsProduct(){
     id, name: state.product.name,
     data: {
       product: state.product, positioning: state.positioning, audience: state.audience,
-      emotionTitle: state.emotionTitle, script: state.script, summary: state.summary,
+      emotionTitle: state.emotionTitle, script: state.script, story: state.story, summary: state.summary,
       selectedTitle: state.selectedTitle, competitor: state.competitor,
     }
   };
@@ -449,6 +449,7 @@ function loadProduct(id){
   state.audience = entry.data.audience;
   state.emotionTitle = entry.data.emotionTitle;
   state.script = entry.data.script;
+  state.story = entry.data.story || null;
   state.selectedTitle = entry.data.selectedTitle;
   state.summary = entry.data.summary;
   state.competitor = entry.data.competitor || null;
@@ -471,7 +472,7 @@ function resetProduct(){
   state.currentProductId = null;
   state.product = { name:"", details:"", audience:"", price:"", emotion:"", story_request:"", story_length:"" };
   state.positioning = null; state.audience = null; state.emotionTitle = null;
-  state.script = null; state.summary = null; state.selectedTitle = null;
+  state.script = null; state.story = null; state.summary = null; state.selectedTitle = null;
   state.competitor = null; state.competitorLoading = false;
   state._emotionCustomMode = false; state._storyLenCustomMode = false;
   state.summaryViewMode = "ad";
@@ -710,7 +711,7 @@ function renderCard(){
       ` : ""}
     `;
     const storyContentHtml = `
-      <div class="info-block story-block">${escapeHtml(storyNarrativeText())}</div>
+      <div class="info-block story-block">${escapeHtml(storyFullText() || "尚未產生故事內容，可以到「宣傳文案」分頁右邊的「故事內容」面板產生。")}</div>
     `;
 
     el.innerHTML = `
@@ -877,14 +878,17 @@ function wireProductSidePanel(){
 }
 
 function storySidePanelHtml(){
-  const s = state.script || {sentences:[]};
-  const paragraphs = (s.sentences || []).map(x => x.text || "").filter(Boolean);
+  const st = state.story || {paragraphs:[]};
+  const paragraphs = (st.paragraphs || []).filter(Boolean);
   const feedback = state.storyFeedbackDraft || "";
 
   return `
-    <h3>故事內容</h3>
-    <div class="desc">完整故事，一段一段呈現。想調整可以在下面打想法，AI 會依照你的回饋修改，其他沒提到的部分會盡量保留。</div>
-    ${state.storyFeedbackLoading ? `<div class="banner info"><span class="spinner"></span>&nbsp;調整中，請稍候…</div>` : ""}
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+      <h3 style="margin-bottom:2px;">故事內容</h3>
+      <button class="btn small secondary" id="regenStoryBtn" ${state.storyFeedbackLoading?"disabled":""}>🔄 重新產生故事</button>
+    </div>
+    <div class="desc">跟左邊的宣傳文案是各自獨立的內容——這裡是完整故事，一段一段呈現。想調整可以在下面打想法，AI 會依照你的回饋修改，其他沒提到的部分會盡量保留。</div>
+    ${state.storyFeedbackLoading ? `<div class="banner info"><span class="spinner"></span>&nbsp;產生中，請稍候…</div>` : ""}
     <div class="story-paragraphs">
       ${paragraphs.length
         ? paragraphs.map((p,i) => `<div class="story-para"><span class="story-para-idx">${i+1}</span>${escapeHtml(p)}</div>`).join("")
@@ -904,6 +908,33 @@ function wireStorySidePanel(){
   if(input) input.addEventListener("input", e => { state.storyFeedbackDraft = e.target.value; });
   const btn = document.getElementById("applyStoryFeedbackBtn");
   if(btn) btn.onclick = applyStoryFeedback;
+  const regenBtn = document.getElementById("regenStoryBtn");
+  if(regenBtn) regenBtn.onclick = regenerateStory;
+}
+
+async function regenerateStory(){
+  clearBanners();
+  state.storyFeedbackLoading = true;
+  renderSidePanel();
+  try{
+    const res = await api("/api/step/story", {
+      product: state.product, positioning: state.positioning, audience: state.audience,
+      emotion_title: state.emotionTitle, mock: state.mock,
+    });
+    state.storyFeedbackLoading = false;
+    if(!res.ok){
+      showBanner("error", res.error || "產生失敗，請再試一次。");
+      renderSidePanel();
+      return;
+    }
+    state.story = res.data;
+    renderSidePanel();
+    saveCurrentAsProduct();
+  } catch(e){
+    state.storyFeedbackLoading = false;
+    showBanner("error", "無法連線到後端服務（請確認「啟動.bat」的黑色視窗還開著）。技術訊息：" + e.message);
+    renderSidePanel();
+  }
 }
 
 async function applyStoryFeedback(){
@@ -916,9 +947,9 @@ async function applyStoryFeedback(){
   state.storyFeedbackLoading = true;
   renderSidePanel();
   try{
-    const res = await api("/api/step/revise_script", {
+    const res = await api("/api/step/revise_story", {
       product: state.product, positioning: state.positioning, audience: state.audience,
-      emotion_title: state.emotionTitle, script: state.script, feedback, mock: state.mock,
+      emotion_title: state.emotionTitle, story: state.story, feedback, mock: state.mock,
     });
     state.storyFeedbackLoading = false;
     if(!res.ok){
@@ -926,9 +957,9 @@ async function applyStoryFeedback(){
       renderSidePanel();
       return;
     }
-    state.script = res.data;
+    state.story = res.data;
     state.storyFeedbackDraft = "";
-    renderCard();
+    renderSidePanel();
     saveCurrentAsProduct();
   } catch(e){
     state.storyFeedbackLoading = false;
@@ -1112,6 +1143,21 @@ async function runStep(step, forceRegen){
       return;
     }
     applyResult(res.data);
+
+    // 廣告文案（宣傳文案）跟故事是分開的兩份內容，只有故事還沒生過的時候才順便一起生，
+    // 這樣切到「宣傳文案」分頁時右邊的「故事內容」才不會是空的；如果故事已經生過或使用者調整過，
+    // 按「重新產出逐字稿」只會重生文案，不會連故事也一起洗掉。
+    if(step === "script" && !state.story){
+      const storyRes = await api("/api/step/story", {
+        ...common, positioning: state.positioning, audience: state.audience, emotion_title: state.emotionTitle,
+      });
+      if(storyRes.ok){
+        state.story = storyRes.data;
+      } else {
+        showBanner("warn", "故事內容產生失敗，可以到「宣傳文案」分頁右邊按「🔄 重新產生故事」再試一次。技術訊息：" + storyRes.error);
+      }
+    }
+
     setLoading(false);
     if(!forceRegen){
       const order = ["product","positioning","audience","emotion","script","summary"];
@@ -1238,9 +1284,10 @@ function fullScriptText(){
 
 // 「故事」用：單純把每句串成段落，讀起來像一篇文章，不加編號——
 // 情緒起伏靠 AI 生成文字本身偶爾在句尾加的 emoji 表達，不是靠這裡加數字。
-function storyNarrativeText(){
-  const s = state.script || {sentences:[]};
-  return (s.sentences || []).map(x => x.text || "").filter(Boolean).join("\n\n");
+// 「故事」用：跟文案（state.script）是分開的獨立內容，讀 state.story 的段落，不加編號
+function storyFullText(){
+  const st = state.story || {paragraphs:[]};
+  return (st.paragraphs || []).filter(Boolean).join("\n\n");
 }
 
 async function copyFullScript(){
@@ -1266,7 +1313,7 @@ async function downloadMarkdown(){
     method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
       product: state.product, positioning: state.positioning, audience: state.audience,
-      emotion_title: state.emotionTitle, script: state.script, summary: state.summary,
+      emotion_title: state.emotionTitle, script: state.script, story: state.story, summary: state.summary,
     }),
   });
   const text = await res.text();
@@ -1276,7 +1323,7 @@ async function downloadMarkdown(){
 function downloadJson(){
   const data = {
     product: state.product, positioning: state.positioning, audience: state.audience,
-    emotion_title: state.emotionTitle, script: state.script, summary: state.summary,
+    emotion_title: state.emotionTitle, script: state.script, story: state.story, summary: state.summary,
   };
   triggerDownload(`${state.product.name || "script"}.json`, JSON.stringify(data, null, 2), "application/json");
 }
