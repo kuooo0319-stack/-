@@ -694,7 +694,7 @@ function productSidePanelHtml(){
 
   return `
     <h3>情緒與故事設定</h3>
-    <div class="desc">選填。幫這支影片帶入情緒基調，也可以請 AI 用第一人稱寫成使用心得故事。</div>
+    <div class="desc">全部選填。AI 會自動把這支影片寫成第一人稱使用心得故事——即使下面完全不打字，AI 也會照你選的情緒和長度自己編一段。</div>
 
     <label>情緒基調</label>
     <div class="chip-select" id="emotionChips">
@@ -703,8 +703,8 @@ function productSidePanelHtml(){
     </div>
     ${emotionCustomMode ? `<input type="text" id="emotionCustomInput" placeholder="輸入你想要的情緒，例如：療癒、興奮、安心" value="${escapeHtml(state.product.emotion)}" style="margin-top:8px" />` : ""}
 
-    <label>故事／使用心得需求 <span class="opt">選填</span></label>
-    <textarea id="storyRequestInput" placeholder="例如：用第一人稱寫出「原本很困擾，後來用了這個產品」的心路歷程">${escapeHtml(state.product.story_request)}</textarea>
+    <label>故事方向／關鍵字 <span class="opt">選填，不用打完整故事</span></label>
+    <textarea id="storyRequestInput" placeholder="這裡只要給個大方向就好，AI 會自己延伸寫成完整故事。例如：原本很困擾，後來用了才解決。留空的話，AI 會直接照上面選的情緒自己生一段故事，不用勉強打字。">${escapeHtml(state.product.story_request)}</textarea>
 
     <label>故事長度</label>
     <div class="chip-select" id="storyLenChips">
