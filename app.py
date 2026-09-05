@@ -290,6 +290,30 @@ def api_rewrite_sentence():
     return _handle(run)
 
 
+@app.post("/api/step/rewrite_sentence_options")
+def api_rewrite_sentence_options():
+    data = request.get_json(force=True) or {}
+    product = _product_from_json(data.get("product", {}))
+    script = data.get("script", {})
+    index = int(data.get("index"))
+    instruction = data.get("instruction", "")
+    exclude_texts = data.get("exclude_texts") or []
+
+    def run():
+        if data.get("mock"):
+            sentences = script.get("sentences", [])
+            target = next((s for s in sentences if s.get("index") == index), None)
+            base = target or {
+                "index": index, "text": "（模擬句子）", "purpose": "示範",
+                "emotion_tags": ["利益"], "shot_suggestion": "（模擬畫面建議）",
+            }
+            suffixes = ["（模擬版本 A）", "（模擬版本 B）", "（模擬版本 C）"]
+            return [{**base, "text": (base.get("text") or "") + s} for s in suffixes]
+        return core.step_rewrite_sentence_options(_current_cfg, product, script, index, instruction, exclude_texts)
+
+    return _handle(run)
+
+
 @app.post("/api/step/revise_script")
 def api_revise_script():
     data = request.get_json(force=True) or {}

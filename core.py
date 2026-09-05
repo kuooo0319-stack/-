@@ -504,6 +504,58 @@ def step_rewrite_sentence(
     return result
 
 
+def step_rewrite_sentence_options(
+    cfg: ProviderConfig,
+    product: ProductInfo,
+    script: dict,
+    sentence_index: int,
+    instruction: str = "",
+    exclude_texts: list | None = None,
+    option_count: int = 3,
+    on_progress=None,
+) -> list:
+    """重寫指定那一句，但一次給 option_count 個彼此明顯不同的版本讓使用者挑選，
+    其餘句子維持不變。exclude_texts 是使用者已經看過、按「重新產生」想換掉的版本，
+    這次要盡量避開類似的角度或說法，確保換出來的是真的不一樣的選項。"""
+    schema = {
+        "type": "object",
+        "properties": {
+            "options": {
+                "type": "array",
+                "description": f"這一句的 {option_count} 個不同寫法選項，彼此角度、語氣或切入點要有明顯差異",
+                "items": _sentence_schema(),
+                "minItems": option_count,
+                "maxItems": option_count,
+            },
+        },
+        "required": ["options"],
+    }
+    target = next((s for s in script.get("sentences", []) if s.get("index") == sentence_index), None)
+    exclude_block = ""
+    if exclude_texts:
+        joined = "\n".join(f"・{t}" for t in exclude_texts if t)
+        exclude_block = f"\n以下寫法使用者已經看過、不想要，這次請避開類似的角度或說法：\n{joined}\n"
+    system = (
+        "你是短影音廣告的逐字稿寫手兼分鏡師。現在只需要重寫指定的那一句（含畫面建議），"
+        f"但要一次給 {option_count} 個彼此明顯不同的版本讓使用者挑選"
+        "（可以換角度、換語氣、換切入點，但都要維持原本這一句的設計目的），"
+        "維持與前後句的語氣和情節連貫。全程使用繁體中文回覆。"
+    )
+    user = (
+        f"產品名稱：{product.name}\n"
+        f"完整逐字稿（供參考上下文）：{json.dumps(script, ensure_ascii=False)}\n"
+        f"要重寫的是第 {sentence_index} 句，原句：{json.dumps(target, ensure_ascii=False)}\n"
+        f"額外要求：{instruction or '（無，請直接換幾個不同寫法，維持原本的設計目的）'}\n"
+        f"{exclude_block}\n"
+        f"請給我 {option_count} 個不同版本。"
+    )
+    result = call_structured(cfg, system, user, schema, "rewrite_sentence_options", on_progress=on_progress)
+    options = result.get("options", []) or []
+    for o in options:
+        o["index"] = sentence_index
+    return options
+
+
 def step_revise_script(
     cfg: ProviderConfig,
     product: ProductInfo,
