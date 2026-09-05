@@ -6,163 +6,217 @@
 <title>腳本拆解機</title>
 <style>
   :root{
-    --bg-dark:#15141a;
-    --bg-dark2:#1e1c24;
-    --card:#f6f1e6;
-    --card-border:#e6dcc6;
-    --text-dark:#2b2620;
-    --muted:#8a8272;
-    --gold:#d9a441;
-    --gold-dark:#b9852c;
-    --danger:#b5566a;
-    --ok:#4d7a52;
-    --radius:14px;
+    --bg1:#ffe6ef;
+    --bg2:#ffd3e4;
+    --bg3:#ffc9e0;
+    --bg4:#e9dcff;
+    --card-bg:rgba(255,255,255,.6);
+    --card-border:rgba(255,255,255,.75);
+    --text-dark:#4a3140;
+    --muted:#9c7f92;
+    --pink:#ff6fa5;
+    --pink-dark:#e0538a;
+    --pink-light:#ffe1ec;
+    --lavender:#b79bff;
+    --danger:#c0466f;
+    --ok:#4f9d72;
+    --radius:20px;
+    --shadow:0 8px 32px rgba(210,120,160,.18);
   }
   *{box-sizing:border-box;}
+  html,body{height:100%;}
   body{
     margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;
-    background:var(--bg-dark); color:#eee; min-height:100vh;
+    color:var(--text-dark); min-height:100vh;
+    background:
+      radial-gradient(circle at 8% 8%, var(--bg4) 0%, transparent 45%),
+      radial-gradient(circle at 92% 4%, var(--bg3) 0%, transparent 50%),
+      radial-gradient(circle at 82% 92%, var(--pink-light) 0%, transparent 55%),
+      radial-gradient(circle at 12% 88%, var(--bg2) 0%, transparent 50%),
+      linear-gradient(160deg, #fff7fa 0%, var(--bg1) 100%);
+    background-attachment: fixed;
   }
+  @keyframes floatIn{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:translateY(0); } }
+
   header{
     display:flex; align-items:center; justify-content:space-between;
-    padding:16px 20px; background:var(--bg-dark2); border-bottom:1px solid #2b2933;
-    position:sticky; top:0; z-index:20;
+    padding:16px 24px; background:rgba(255,255,255,.55); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+    border-bottom:1px solid rgba(255,255,255,.7);
+    position:sticky; top:0; z-index:20; box-shadow:0 4px 24px rgba(210,140,170,.12);
   }
-  header h1{ font-size:20px; margin:0; font-weight:700; letter-spacing:.5px; }
-  header .sub{ font-size:12px; color:#a29cb3; margin-top:2px; }
+  header h1{ font-size:20px; margin:0; font-weight:800; letter-spacing:.5px; color:var(--pink-dark); }
+  header .sub{ font-size:12px; color:var(--muted); margin-top:2px; }
   .icon-btn{
-    background:#2b2933; border:1px solid #3a3745; color:#eee; border-radius:10px;
+    background:rgba(255,255,255,.6); border:1px solid rgba(255,255,255,.85); color:var(--pink-dark); border-radius:12px;
     width:38px; height:38px; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; font-size:18px;
+    cursor:pointer; font-size:18px; backdrop-filter:blur(6px);
   }
-  .icon-btn:hover{ background:#38364280; }
+  .icon-btn:hover{ background:#fff; }
 
-  .layout{ display:flex; max-width:1200px; margin:0 auto; }
+  .layout{ display:flex; max-width:1360px; margin:0 auto; align-items:flex-start; }
   .sidebar{
-    width:230px; flex-shrink:0; padding:16px 12px; border-right:1px solid #2b2933;
-    min-height:calc(100vh - 70px);
+    width:230px; flex-shrink:0; padding:16px 12px; min-height:calc(100vh - 70px);
+    background:rgba(255,255,255,.35); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border-right:1px solid rgba(255,255,255,.5);
   }
-  .sidebar h2{ font-size:12px; text-transform:uppercase; color:#8f8aa0; margin:6px 8px 10px; letter-spacing:1px;}
+  .sidebar h2{ font-size:12px; text-transform:uppercase; color:var(--muted); margin:6px 8px 10px; letter-spacing:1px;}
   .product-item{
-    padding:10px 12px; border-radius:10px; cursor:pointer; font-size:13px; color:#ddd;
+    padding:10px 12px; border-radius:12px; cursor:pointer; font-size:13px; color:#6b5464;
     margin-bottom:4px; display:flex; justify-content:space-between; align-items:center; gap:6px;
   }
-  .product-item:hover{ background:#252331; }
-  .product-item.active{ background:#332c1b; color:var(--gold); }
+  .product-item:hover{ background:rgba(255,255,255,.55); }
+  .product-item.active{ background:linear-gradient(120deg,#ffdfec,#ffe9f4); color:var(--pink-dark); font-weight:700; }
   .product-item .del{ opacity:.5; font-size:12px; }
   .product-item .del:hover{ opacity:1; color:var(--danger); }
   .new-product-btn{
-    width:100%; padding:10px; border-radius:10px; border:1px dashed #4a4658; background:none;
-    color:#bbb; cursor:pointer; font-size:13px; margin-bottom:14px;
+    width:100%; padding:10px; border-radius:12px; border:1.5px dashed #f0b8cf; background:rgba(255,255,255,.4);
+    color:var(--pink-dark); cursor:pointer; font-size:13px; margin-bottom:14px; font-weight:700;
   }
-  .new-product-btn:hover{ border-color:var(--gold); color:var(--gold); }
+  .new-product-btn:hover{ border-color:var(--pink); background:#fff; }
 
-  main{ flex:1; padding:20px; min-width:0; }
+  main{ flex:1; padding:24px; min-width:0; }
+
+  .workspace{ display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:20px; align-items:start; }
+  .side-panel{ position:sticky; top:96px; }
 
   .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
   .tab{
-    padding:10px 16px; border-radius:10px; background:#221f2b; border:1px solid #322e3d;
-    color:#bbb; cursor:pointer; font-size:14px; white-space:nowrap; position:relative;
+    padding:10px 18px; border-radius:999px; background:rgba(255,255,255,.5); border:1px solid rgba(255,255,255,.75);
+    color:#8a6d7e; cursor:pointer; font-size:14px; white-space:nowrap; position:relative;
+    backdrop-filter:blur(8px); transition:all .15s ease;
   }
-  .tab.active{ border-color:var(--gold); color:var(--gold); background:#2c2717; }
+  .tab.active{ background:linear-gradient(120deg,var(--pink),var(--lavender)); color:#fff; border-color:transparent; box-shadow:0 6px 16px rgba(230,110,160,.35); }
   .tab .dot{
     display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ok);
     margin-left:6px; vertical-align:middle;
   }
-  .tab.locked{ opacity:.45; cursor:not-allowed; }
+  .tab.locked{ opacity:.4; cursor:not-allowed; }
 
   .card{
-    background:var(--card); color:var(--text-dark); border-radius:var(--radius);
-    border:1px solid var(--card-border); padding:22px; min-height:300px;
+    background:var(--card-bg); color:var(--text-dark); border-radius:var(--radius);
+    border:1px solid var(--card-border); padding:26px; min-height:300px;
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); box-shadow:var(--shadow);
+    animation:floatIn .35s ease;
   }
-  .card h2{ margin:0 0 4px; font-size:22px; }
+  .card h2{ margin:0 0 4px; font-size:22px; color:var(--pink-dark); }
+  .card h3{ margin:0 0 4px; font-size:17px; color:var(--pink-dark); }
   .card .desc{ color:var(--muted); font-size:13px; margin-bottom:18px; }
 
-  label{ display:block; font-size:13px; font-weight:600; margin:14px 0 6px; }
+  label{ display:block; font-size:13px; font-weight:700; margin:14px 0 6px; color:#7a5c6e; }
   label .opt{ font-weight:400; color:var(--muted); }
-  input[type=text], input[type=password], textarea, select{
-    width:100%; padding:12px 14px; border-radius:10px; border:1px solid #ddd0ac;
-    background:#fff; font-size:14px; font-family:inherit; color:var(--text-dark);
+  input[type=text], input[type=password], input[type=number], textarea, select{
+    width:100%; padding:12px 14px; border-radius:12px; border:1px solid #f3cfe0;
+    background:rgba(255,255,255,.85); font-size:14px; font-family:inherit; color:var(--text-dark);
   }
   textarea{ min-height:90px; resize:vertical; }
-  input:focus, textarea:focus, select:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+  input:focus, textarea:focus, select:focus{ outline:2px solid var(--pink); outline-offset:1px; }
 
   .btn{
-    display:inline-flex; align-items:center; gap:8px; padding:12px 20px; border-radius:10px;
-    border:none; font-size:14px; font-weight:600; cursor:pointer; background:var(--gold); color:#2b2100;
+    display:inline-flex; align-items:center; gap:8px; padding:12px 22px; border-radius:999px;
+    border:none; font-size:14px; font-weight:700; cursor:pointer; color:#fff;
+    background:linear-gradient(120deg,var(--pink),#ff9ac0); box-shadow:0 6px 18px rgba(230,110,160,.35);
+    transition:transform .12s ease, filter .12s ease;
   }
-  .btn:hover{ background:var(--gold-dark); }
-  .btn.secondary{ background:#e7ddc4; color:var(--text-dark); }
-  .btn.secondary:hover{ background:#ddd0a6; }
-  .btn.ghost{ background:transparent; border:1px solid #ccc0a0; color:var(--text-dark); }
-  .btn.small{ padding:6px 12px; font-size:12px; }
-  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn:hover{ filter:brightness(1.05); transform:translateY(-1px); }
+  .btn.secondary{ background:rgba(255,255,255,.75); color:var(--pink-dark); box-shadow:none; border:1px solid #f3cfe0; }
+  .btn.secondary:hover{ background:#fff; }
+  .btn.ghost{ background:transparent; border:1px solid #f0b8cf; color:var(--pink-dark); box-shadow:none; }
+  .btn.small{ padding:7px 14px; font-size:12px; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
   .btn-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
 
-  .info-block{ background:#fff; border:1px solid var(--card-border); border-radius:10px; padding:14px 16px; margin-bottom:12px; }
-  .info-block .label{ font-size:12px; color:var(--muted); font-weight:600; margin-bottom:4px; }
+  .info-block{ background:rgba(255,255,255,.6); border:1px solid var(--card-border); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  .info-block .label{ font-size:12px; color:var(--pink-dark); font-weight:700; margin-bottom:4px; }
   .info-block .value{ font-size:14px; line-height:1.6; }
   ul.plain{ margin:6px 0 0; padding-left:18px; }
   ul.plain li{ margin-bottom:4px; font-size:14px; line-height:1.5; }
 
   .chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
-  .chip{ background:#efe6cc; border:1px solid #ddcf9f; border-radius:20px; padding:6px 12px; font-size:13px; }
+  .chip{ background:#ffeaf2; border:1px solid #ffcfe3; border-radius:20px; padding:6px 12px; font-size:13px; color:#8a4d68; }
   .arc-flow{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:14px; margin-top:6px; }
-  .arc-flow .seg{ background:#fff; border:1px solid var(--card-border); padding:6px 12px; border-radius:8px; }
+  .arc-flow .seg{ background:rgba(255,255,255,.8); border:1px solid var(--card-border); padding:6px 12px; border-radius:10px; }
   .arc-flow .arrow{ color:var(--muted); }
 
   .title-option{
     display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border:1px solid var(--card-border);
-    border-radius:10px; background:#fff; margin-bottom:8px; cursor:pointer;
+    border-radius:12px; background:rgba(255,255,255,.75); margin-bottom:8px; cursor:pointer;
   }
-  .title-option.selected{ border-color:var(--gold); background:#fdf6e3; }
+  .title-option.selected{ border-color:var(--pink); background:#fff0f6; }
   .title-option input{ width:auto; margin-top:3px; }
 
-  .sentence-card{
-    background:#fff; border:1px solid var(--card-border); border-radius:12px; padding:16px 18px; margin-bottom:14px;
+  .bullet-list{ list-style:none; margin:0; padding:0; }
+  .bullet-item{
+    background:rgba(255,255,255,.72); border:1px solid var(--card-border); border-radius:16px; padding:16px 18px; margin-bottom:14px;
   }
-  .sentence-card .idx{
+  .bullet-item .idx{
     display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%;
-    background:var(--gold); color:#2b2100; font-size:12px; font-weight:700; margin-right:8px;
+    background:linear-gradient(120deg,var(--pink),var(--lavender)); color:#fff; font-size:12px; font-weight:700; margin-right:8px;
   }
-  .sentence-card .text{ font-size:16px; line-height:1.7; margin:8px 0 10px; }
-  .sentence-card .purpose{ font-size:13px; color:var(--muted); margin-bottom:8px; }
-  .sentence-card .shot{ font-size:13px; color:#6b5a3a; background:#faf3df; border:1px solid #ecdfb8; border-radius:8px; padding:8px 10px; margin-top:10px; }
+  .bullet-item .text{ font-size:16px; line-height:1.7; margin:0 0 10px; font-weight:700; }
+  .bullet-item ul.sub-bullet{ margin:0 0 8px; padding-left:20px; }
+  .bullet-item ul.sub-bullet li{ font-size:13.5px; color:#6b5464; margin-bottom:6px; line-height:1.7; }
+  .bullet-item ul.sub-bullet li strong{ color:var(--pink-dark); }
   .tag{ display:inline-block; color:#fff; border-radius:14px; padding:3px 11px; font-size:12px; margin-right:6px; }
   .sentence-actions{ margin-top:10px; }
 
-  .banner{ padding:12px 16px; border-radius:10px; font-size:13px; margin-bottom:16px; display:flex; justify-content:space-between; gap:10px; align-items:center; }
-  .banner.error{ background:#fbe4e8; color:#8a1f36; border:1px solid #f0b7c2; }
-  .banner.info{ background:#eef3ee; color:#2c4a30; border:1px solid #c9dccb; }
-  .banner.warn{ background:#fbf1de; color:#6b4a12; border:1px solid #eed6a5; }
+  .checklist{ list-style:none; margin:0; padding:0; }
+  .checklist li{ font-size:14px; line-height:1.7; margin-bottom:6px; padding-left:26px; position:relative; }
+  .checklist li:before{ content:"✅"; position:absolute; left:0; top:0; font-size:13px; }
+
+  .banner{ padding:12px 16px; border-radius:14px; font-size:13px; margin-bottom:16px; display:flex; justify-content:space-between; gap:10px; align-items:center; }
+  .banner.error{ background:#ffe3ea; color:#9a2c50; border:1px solid #ffc0d4; }
+  .banner.info{ background:#eaf6ee; color:#2c6a41; border:1px solid #c9e8d1; }
+  .banner.warn{ background:#fff3e0; color:#8a5a12; border:1px solid #f5d99f; }
 
   .stat-row{ display:flex; gap:16px; flex-wrap:wrap; margin:14px 0; }
-  .stat{ background:#fff; border:1px solid var(--card-border); border-radius:10px; padding:10px 16px; font-size:13px; }
-  .stat b{ display:block; font-size:18px; color:var(--gold-dark); }
+  .stat{ background:rgba(255,255,255,.72); border:1px solid var(--card-border); border-radius:12px; padding:10px 16px; font-size:13px; }
+  .stat b{ display:block; font-size:18px; color:var(--pink-dark); }
 
   .spinner{
-    width:16px; height:16px; border:2px solid rgba(0,0,0,.15); border-top-color:var(--gold-dark);
+    width:16px; height:16px; border:2px solid rgba(0,0,0,.1); border-top-color:var(--pink-dark);
     border-radius:50%; animation:spin .7s linear infinite; display:inline-block;
   }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
   .modal-overlay{
-    position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:50;
+    position:fixed; inset:0; background:rgba(80,40,60,.35); backdrop-filter:blur(2px); display:none; align-items:center; justify-content:center; z-index:50;
   }
   .modal-overlay.open{ display:flex; }
-  .modal{ background:var(--card); color:var(--text-dark); border-radius:var(--radius); width:min(480px, 92vw); padding:24px; max-height:88vh; overflow:auto; }
-  .modal h3{ margin:0 0 4px; }
+  .modal{ background:rgba(255,255,255,.92); backdrop-filter:blur(20px); color:var(--text-dark); border-radius:var(--radius); width:min(480px, 92vw); padding:24px; max-height:88vh; overflow:auto; box-shadow:var(--shadow); }
+  .modal h3{ margin:0 0 4px; color:var(--pink-dark); }
   .modal .sub{ color:var(--muted); font-size:12px; margin-bottom:18px; }
   .modal-close{ float:right; cursor:pointer; font-size:18px; color:var(--muted); }
   .field-hint{ font-size:12px; color:var(--muted); margin-top:4px; }
   .checkbox-row{ display:flex; align-items:center; gap:8px; margin-top:14px; }
   .checkbox-row input{ width:auto; }
 
-  footer{ text-align:center; padding:24px; color:#605c6e; font-size:12px; }
+  .chip-select{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+  .chip-opt{
+    padding:8px 16px; border-radius:999px; border:1px solid #f3cfe0; background:rgba(255,255,255,.72);
+    font-size:13px; color:#8a6d7e; cursor:pointer; transition:all .15s ease;
+  }
+  .chip-opt:hover{ background:#fff; }
+  .chip-opt.active{ background:linear-gradient(120deg,var(--pink),var(--lavender)); color:#fff; border-color:transparent; font-weight:700; }
 
+  .source-list{ list-style:none; margin:10px 0 0; padding:0; }
+  .source-list li{ margin-bottom:8px; }
+  .source-list a{
+    display:block; background:rgba(255,255,255,.72); border:1px solid var(--card-border); border-radius:10px;
+    padding:10px 12px; font-size:13px; color:var(--pink-dark); text-decoration:none; word-break:break-all;
+  }
+  .source-list a:hover{ background:#fff; text-decoration:underline; }
+  .tip-list{ margin:0; padding-left:18px; }
+  .tip-list li{ font-size:13px; line-height:1.7; color:#6b5464; margin-bottom:8px; }
+
+  footer{ text-align:center; padding:24px; color:#9c7f92; font-size:12px; }
+
+  @media (max-width: 980px){
+    .workspace{ grid-template-columns:1fr; }
+    .side-panel{ position:static; }
+  }
   @media (max-width: 760px){
     .layout{ flex-direction:column; }
-    .sidebar{ width:100%; border-right:none; border-bottom:1px solid #2b2933; min-height:auto; }
+    .sidebar{ width:100%; border-right:none; border-bottom:1px solid rgba(255,255,255,.5); min-height:auto; }
   }
 </style>
 </head>
@@ -198,7 +252,10 @@
       <div class="tab locked" data-tab="summary">總結<span class="dot" style="display:none"></span></div>
     </div>
 
-    <div class="card" id="cardArea"></div>
+    <div class="workspace">
+      <div class="card" id="cardArea"></div>
+      <div class="card side-panel" id="sideArea"></div>
+    </div>
   </main>
 </div>
 
@@ -262,8 +319,15 @@ const EMOTION_TAG_COLORS = {
 };
 function tagColor(tag){ return EMOTION_TAG_COLORS[tag] || "#6b6456"; }
 
+const EMOTION_PRESETS = ["開心", "困擾", "難過", "驚喜", "感動"];
+const STORY_LENGTH_PRESETS = [
+  { key: "short", label: "短篇（約100字內）" },
+  { key: "medium", label: "中篇（約200～300字）" },
+  { key: "long", label: "長篇（約400字以上）" },
+];
+
 const state = {
-  product: { name:"", details:"", audience:"", price:"" },
+  product: { name:"", details:"", audience:"", price:"", emotion:"", story_request:"", story_length:"" },
   positioning: null, audience: null, emotionTitle: null, script: null, summary: null,
   selectedTitle: null,
   activeTab: "product",
@@ -271,6 +335,10 @@ const state = {
   currentProductId: null,
   config: { provider:"anthropic", model:"", base_url:"", has_api_key:false },
   mock: false,
+  competitor: null,
+  competitorLoading: false,
+  _emotionCustomMode: false,
+  _storyLenCustomMode: false,
 };
 
 const STORAGE_KEY = "script_breaker_products_v1";
@@ -292,7 +360,7 @@ function saveCurrentAsProduct(){
     data: {
       product: state.product, positioning: state.positioning, audience: state.audience,
       emotionTitle: state.emotionTitle, script: state.script, summary: state.summary,
-      selectedTitle: state.selectedTitle,
+      selectedTitle: state.selectedTitle, competitor: state.competitor,
     }
   };
   const idx = list.findIndex(p => p.id === id);
@@ -305,13 +373,19 @@ function loadProduct(id){
   const entry = list.find(p => p.id === id);
   if(!entry) return;
   state.currentProductId = id;
-  state.product = entry.data.product;
+  state.product = Object.assign(
+    { name:"", details:"", audience:"", price:"", emotion:"", story_request:"", story_length:"" },
+    entry.data.product
+  );
   state.positioning = entry.data.positioning;
   state.audience = entry.data.audience;
   state.emotionTitle = entry.data.emotionTitle;
   state.script = entry.data.script;
   state.selectedTitle = entry.data.selectedTitle;
   state.summary = entry.data.summary;
+  state.competitor = entry.data.competitor || null;
+  state._emotionCustomMode = false;
+  state._storyLenCustomMode = false;
   switchTab("product");
   renderAll();
 }
@@ -324,17 +398,23 @@ function deleteProduct(id, ev){
 }
 function resetProduct(){
   state.currentProductId = null;
-  state.product = { name:"", details:"", audience:"", price:"" };
+  state.product = { name:"", details:"", audience:"", price:"", emotion:"", story_request:"", story_length:"" };
   state.positioning = null; state.audience = null; state.emotionTitle = null;
   state.script = null; state.summary = null; state.selectedTitle = null;
+  state.competitor = null; state.competitorLoading = false;
+  state._emotionCustomMode = false; state._storyLenCustomMode = false;
   switchTab("product");
   renderAll();
+}
+function renderAll(){
+  renderProductList();
+  renderCard();
 }
 function renderProductList(){
   const list = loadSavedProducts();
   const el = document.getElementById("productList");
   if(list.length === 0){
-    el.innerHTML = '<div style="color:#7a7690;font-size:12px;padding:6px 8px;">尚未儲存任何產品</div>';
+    el.innerHTML = '<div style="color:#9c7f92;font-size:12px;padding:6px 8px;">尚未儲存任何產品</div>';
     return;
   }
   el.innerHTML = list.map(p => `
@@ -408,7 +488,7 @@ function renderCard(){
   if(state.activeTab === "product"){
     el.innerHTML = `
       <h2>產品資訊</h2>
-      <div class="desc">填好之後點「開始拆解」，會依序產生內容定位、受眾確認、情緒與標題、逐字稿與總結。</div>
+      <div class="desc">填好之後點「開始拆解」，會依序產生內容定位、受眾確認、情緒與標題、逐字稿與總結。右邊可以設定情緒基調與故事需求。</div>
       ${loadingHtml}
       <label>產品名稱</label>
       <input type="text" id="fName" placeholder="例如：無線頸掛風扇" value="${escapeHtml(state.product.name)}" />
@@ -505,18 +585,25 @@ function renderCard(){
   else if(state.activeTab === "script"){
     const s = state.script || {sentences:[]};
     const sentences = s.sentences || [];
+    const checklist = s.element_checklist || [];
     const totalChars = sentences.reduce((sum,x)=> sum + (x.text||"").length, 0);
     const estSeconds = Math.round(totalChars / 4.3); // 中文口語約 4~4.5 字/秒
     el.innerHTML = `
       <h2>${escapeHtml(s.title || "完整逐字稿")}</h2>
-      <div class="desc">每句都標註設計目的與使用的情緒催化劑。</div>
+      <div class="desc">條列式呈現：每一點把設計目的與情緒催化劑合併說明，並附上畫面建議，可個別重寫。右邊可以看看同行都怎麼做。</div>
       ${loadingHtml}
       <div class="stat-row">
         <div class="stat"><b>${sentences.length}</b>句</div>
         <div class="stat"><b>${totalChars}</b>字</div>
         <div class="stat"><b>約 ${estSeconds}</b>秒（估計口白長度）</div>
       </div>
-      <div id="sentenceList">${sentences.map(renderSentenceCard).join("")}</div>
+      <ul class="bullet-list" id="sentenceList">${sentences.map(renderSentenceCard).join("")}</ul>
+      ${checklist.length ? `
+        <div class="info-block" style="margin-top:18px;">
+          <div class="label">腳本元素檢查表</div>
+          <ul class="checklist">${checklist.map(c => `<li>${escapeHtml(c)}</li>`).join("")}</ul>
+        </div>
+      ` : ""}
       <div class="btn-row">
         <button class="btn secondary" id="regenScript" ${state.loading?"disabled":""}>重新產出逐字稿</button>
         <button class="btn" id="toSummary" ${state.loading?"disabled":""}>下一步：總結</button>
@@ -534,7 +621,7 @@ function renderCard(){
     const sum = state.summary || {};
     el.innerHTML = `
       <h2>總結</h2>
-      <div class="desc">這支影片會打中受眾的原因，與後續優化建議。</div>
+      <div class="desc">這支影片會打中受眾的原因，與 AI 自主分析的後續優化／引流建議。右邊可以看看同行都怎麼做。</div>
       ${loadingHtml}
       <div class="info-block">
         <div class="label">這支影片會打中受眾的原因</div>
@@ -558,23 +645,22 @@ function renderCard(){
   }
 
   renderTabs();
+  renderSidePanel();
 }
 
 function renderSentenceCard(s){
   const tags = (s.emotion_tags||[]).map(t => `<span class="tag" style="background:${tagColor(t)}">${escapeHtml(t)}</span>`).join("");
-  const shot = s.shot_suggestion
-    ? `<div class="shot">🎬 畫面建議：${escapeHtml(s.shot_suggestion)}</div>` : "";
   return `
-    <div class="sentence-card">
-      <div><span class="idx">${s.index}</span><strong>第 ${s.index} 句</strong></div>
-      <div class="text">${escapeHtml(s.text)}</div>
-      <div class="purpose">設計目的：${escapeHtml(s.purpose||"")}</div>
-      <div>${tags}</div>
-      ${shot}
+    <li class="bullet-item">
+      <div class="text"><span class="idx">${s.index}</span>${escapeHtml(s.text)}</div>
+      <ul class="sub-bullet">
+        <li><strong>設計目的｜情緒催化劑：</strong>${escapeHtml(s.purpose||"")}${tags ? "　" + tags : ""}</li>
+        ${s.shot_suggestion ? `<li><strong>畫面建議：</strong>🎬 ${escapeHtml(s.shot_suggestion)}</li>` : ""}
+      </ul>
       <div class="sentence-actions">
         <button class="btn small ghost" id="rewrite-${s.index}">重寫這句</button>
       </div>
-    </div>
+    </li>
   `;
 }
 
@@ -582,6 +668,186 @@ function selectTitle(t){
   state.selectedTitle = t;
   if(state.emotionTitle) state.emotionTitle.recommended_title = t;
   renderCard();
+}
+
+// ── 右側區塊（情緒與故事設定 / 小提醒 / 同行怎麼做）──────────────────
+
+function renderSidePanel(){
+  const el = document.getElementById("sideArea");
+  if(!el) return;
+  if(state.activeTab === "product"){
+    el.innerHTML = productSidePanelHtml();
+    wireProductSidePanel();
+  } else if(state.activeTab === "script" || state.activeTab === "summary"){
+    el.innerHTML = competitorSidePanelHtml();
+    wireCompetitorSidePanel();
+  } else {
+    el.innerHTML = tipsSidePanelHtml(state.activeTab);
+  }
+}
+
+function productSidePanelHtml(){
+  const emotionCustomMode = state._emotionCustomMode || (!!state.product.emotion && !EMOTION_PRESETS.includes(state.product.emotion));
+  const storyLenCustomMode = state._storyLenCustomMode || (!!state.product.story_length && !STORY_LENGTH_PRESETS.some(o => o.label === state.product.story_length));
+  const customLenMatch = /^自訂[:：](\d+)字$/.exec(state.product.story_length || "");
+  const customLenValue = customLenMatch ? customLenMatch[1] : "";
+
+  return `
+    <h3>情緒與故事設定</h3>
+    <div class="desc">選填。幫這支影片帶入情緒基調，也可以請 AI 用第一人稱寫成使用心得故事。</div>
+
+    <label>情緒基調</label>
+    <div class="chip-select" id="emotionChips">
+      ${EMOTION_PRESETS.map(e => `<span class="chip-opt ${(!emotionCustomMode && state.product.emotion===e)?'active':''}" data-emotion="${escapeHtml(e)}">${escapeHtml(e)}</span>`).join("")}
+      <span class="chip-opt ${emotionCustomMode?'active':''}" data-emotion="__custom">自訂…</span>
+    </div>
+    ${emotionCustomMode ? `<input type="text" id="emotionCustomInput" placeholder="輸入你想要的情緒，例如：療癒、興奮、安心" value="${escapeHtml(state.product.emotion)}" style="margin-top:8px" />` : ""}
+
+    <label>故事／使用心得需求 <span class="opt">選填</span></label>
+    <textarea id="storyRequestInput" placeholder="例如：用第一人稱寫出「原本很困擾，後來用了這個產品」的心路歷程">${escapeHtml(state.product.story_request)}</textarea>
+
+    <label>故事長度</label>
+    <div class="chip-select" id="storyLenChips">
+      ${STORY_LENGTH_PRESETS.map(o => `<span class="chip-opt ${(!storyLenCustomMode && state.product.story_length===o.label)?'active':''}" data-len="${escapeHtml(o.label)}">${escapeHtml(o.label)}</span>`).join("")}
+      <span class="chip-opt ${storyLenCustomMode?'active':''}" data-len="__custom">自訂字數…</span>
+    </div>
+    ${storyLenCustomMode ? `
+      <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+        <input type="number" id="storyLenCustomInput" min="20" max="3000" placeholder="例如 300" value="${escapeHtml(customLenValue)}" style="width:120px" />
+        <span style="font-size:13px; color:var(--muted)">字以內</span>
+      </div>
+    ` : ""}
+  `;
+}
+
+function wireProductSidePanel(){
+  document.querySelectorAll('#emotionChips .chip-opt').forEach(chip => {
+    chip.onclick = () => {
+      const val = chip.dataset.emotion;
+      if(val === "__custom"){
+        state._emotionCustomMode = true;
+        if(EMOTION_PRESETS.includes(state.product.emotion)) state.product.emotion = "";
+      } else {
+        state._emotionCustomMode = false;
+        state.product.emotion = val;
+      }
+      renderSidePanel();
+    };
+  });
+  const emotionCustomInput = document.getElementById("emotionCustomInput");
+  if(emotionCustomInput){
+    emotionCustomInput.addEventListener("input", e => { state.product.emotion = e.target.value; });
+  }
+
+  const storyRequestInput = document.getElementById("storyRequestInput");
+  if(storyRequestInput){
+    storyRequestInput.addEventListener("input", e => { state.product.story_request = e.target.value; });
+  }
+
+  document.querySelectorAll('#storyLenChips .chip-opt').forEach(chip => {
+    chip.onclick = () => {
+      const val = chip.dataset.len;
+      if(val === "__custom"){
+        state._storyLenCustomMode = true;
+        if(STORY_LENGTH_PRESETS.some(o => o.label === state.product.story_length)) state.product.story_length = "";
+      } else {
+        state._storyLenCustomMode = false;
+        state.product.story_length = val;
+      }
+      renderSidePanel();
+    };
+  });
+  const storyLenCustomInput = document.getElementById("storyLenCustomInput");
+  if(storyLenCustomInput){
+    storyLenCustomInput.addEventListener("input", e => {
+      const n = parseInt(e.target.value, 10);
+      state.product.story_length = n ? `自訂:${n}字` : "自訂:字";
+    });
+  }
+}
+
+function tipsSidePanelHtml(tab){
+  const tips = {
+    positioning: [
+      "核心切角要具體到一句話就能講清楚。",
+      "差異化定位是別人抄不走的部分，越具體越好。",
+      "先確認定位，後面的受眾與腳本才不會跑偏。",
+    ],
+    audience: [
+      "痛點寫得越戳心，開頭鉤子就越有力。",
+      "購買顧慮先寫進腳本裡，等於幫觀眾先反駁自己。",
+      "受眾輪廓越具體，AI 產出的口吻會越準。",
+    ],
+    emotion: [
+      "標題／開頭鉤子要在 3 秒內留住人。",
+      "情緒轉折順序決定觀眾會不會滑走。",
+      "選標題時可以多換幾批比較看看。",
+    ],
+  };
+  const list = tips[tab] || [];
+  return `
+    <h3>小提醒</h3>
+    <div class="desc">這個步驟可以參考看看。</div>
+    <ul class="tip-list">${list.map(t => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
+  `;
+}
+
+function competitorSidePanelHtml(){
+  const c = state.competitor;
+  let body = `<div class="desc" style="margin-top:-6px">尚未搜尋。點下面按鈕，讓 AI 用你目前設定的供應商，搜尋同類產品在網路上流量比較好的賣場／文案做參考（會自動避開殭屍賣場）。</div>`;
+
+  if(state.competitorLoading){
+    body = `<div class="banner info"><span class="spinner"></span>&nbsp;搜尋中，這可能需要 10~30 秒…</div>`;
+  } else if(c){
+    if(c.supported === false){
+      body = `<div class="banner warn">${escapeHtml(c.note || "目前供應商不支援即時網路搜尋。")}</div>`;
+    } else {
+      const sources = c.sources || [];
+      body = `
+        <div class="info-block"><div class="label">重點摘要</div><div class="value" style="white-space:pre-wrap">${escapeHtml(c.summary || "（沒有摘要內容）")}</div></div>
+        ${sources.length ? `
+          <div class="label" style="font-size:12px; color:var(--pink-dark); font-weight:700; margin:10px 0 4px;">參考來源</div>
+          <ul class="source-list">${sources.map(s => `<li><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title || s.url)}</a></li>`).join("")}</ul>
+        ` : ""}
+      `;
+    }
+  }
+
+  return `
+    <h3>其他同行怎麼做</h3>
+    <div class="desc">AI 自主搜尋＋摘要，優先看流量好的參考，不會編造連結。</div>
+    ${body}
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn secondary small" id="runCompetitorBtn" ${state.competitorLoading?"disabled":""}>${c ? "重新搜尋" : "開始搜尋"}</button>
+    </div>
+  `;
+}
+
+function wireCompetitorSidePanel(){
+  const btn = document.getElementById("runCompetitorBtn");
+  if(btn) btn.onclick = runCompetitorResearch;
+}
+
+async function runCompetitorResearch(){
+  state.competitorLoading = true;
+  renderSidePanel();
+  try{
+    const res = await api("/api/step/competitor_research", {
+      product: state.product, positioning: state.positioning, mock: state.mock,
+    });
+    state.competitorLoading = false;
+    if(!res.ok){
+      state.competitor = { supported:false, summary:"", sources:[], note: res.error || "搜尋失敗，請稍後再試。" };
+    } else {
+      state.competitor = res.data;
+    }
+    renderSidePanel();
+    saveCurrentAsProduct();
+  } catch(e){
+    state.competitorLoading = false;
+    state.competitor = { supported:false, summary:"", sources:[], note: "無法連線到後端服務（請確認「啟動.bat」的黑色視窗還開著）。技術訊息：" + e.message };
+    renderSidePanel();
+  }
 }
 
 // ── 呼叫後端 ─────────────────────────────────────────────────────
