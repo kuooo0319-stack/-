@@ -672,7 +672,7 @@ function renderCard(){
       ` : ""}
     `;
     const storyContentHtml = `
-      <div class="info-block story-block">${escapeHtml(fullScriptText())}</div>
+      <div class="info-block story-block">${escapeHtml(storyNarrativeText())}</div>
     `;
 
     el.innerHTML = `
@@ -1116,12 +1116,19 @@ function numberEmoji(n){
   return String(n).split("").map(d => DIGIT_EMOJI[parseInt(d,10)] || "").join("");
 }
 
+// 「文宣」用：每一句前面加編號 emoji，貼到別的地方（例如 Discord）也看得出是一條一條的重點，
+// 不是黏成一大坨的段落。只用在複製完整逐字稿（文宣類輸出），不要用在故事閱讀畫面。
 function fullScriptText(){
   const s = state.script || {sentences:[]};
   const sentences = s.sentences || [];
-  // 條列式：每一句前面加編號 emoji，貼到別的地方（例如 Discord）也看得出是一條一條的重點，
-  // 不是黏成一大坨的段落。
   return sentences.map((x, i) => `${numberEmoji(x.index || (i + 1))} ${x.text || ""}`).join("\n\n");
+}
+
+// 「故事」用：單純把每句串成段落，讀起來像一篇文章，不加編號——
+// 情緒起伏靠 AI 生成文字本身偶爾在句尾加的 emoji 表達，不是靠這裡加數字。
+function storyNarrativeText(){
+  const s = state.script || {sentences:[]};
+  return (s.sentences || []).map(x => x.text || "").filter(Boolean).join("\n\n");
 }
 
 async function copyFullScript(){
