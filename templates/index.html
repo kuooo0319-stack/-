@@ -190,6 +190,24 @@
   .modal .sub{ color:var(--muted); font-size:12px; margin-bottom:18px; }
   .modal-close{ float:right; cursor:pointer; font-size:18px; color:var(--muted); }
   .field-hint{ font-size:12px; color:var(--muted); margin-top:4px; }
+
+  .rewrite-modal{ width:min(640px, 94vw); }
+  .rewrite-modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .rewrite-modal-head .modal-close{ float:none; }
+  .rewrite-options{ margin-top:14px; }
+  .rewrite-option{
+    display:flex; align-items:flex-start; gap:12px; padding:14px 16px; border:1.5px solid var(--card-border);
+    border-radius:14px; background:rgba(255,255,255,.75); margin-bottom:10px; cursor:pointer; transition:all .15s ease;
+  }
+  .rewrite-option:hover{ border-color:var(--lavender); background:#f3fcfe; }
+  .rewrite-option.selected{ border-color:var(--pink); background:#e6f8fc; box-shadow:0 4px 14px rgba(46,196,220,.18); }
+  .rewrite-option input[type=radio]{ width:auto; margin-top:4px; accent-color:var(--pink); flex-shrink:0; }
+  .rewrite-option-body{ flex:1; min-width:0; }
+  .rewrite-option-body .text{ font-size:14.5px; line-height:1.7; font-weight:700; margin-bottom:6px; }
+  .rewrite-option-body .meta{ font-size:12.5px; color:#4a6b78; line-height:1.7; }
+  .rewrite-option-body .meta strong{ color:var(--pink-dark); }
+  .rewrite-option-body .meta .tag{ padding:2px 9px; font-size:11px; }
+  .rewrite-loading{ display:flex; align-items:center; gap:10px; padding:36px 0; justify-content:center; color:var(--muted); font-size:13px; }
   .checkbox-row{ display:flex; align-items:center; gap:8px; margin-top:14px; }
   .checkbox-row input{ width:auto; }
 
@@ -338,6 +356,26 @@
   </div>
 </div>
 
+<!-- 重寫這句 Modal -->
+<div class="modal-overlay" id="rewriteModal">
+  <div class="modal rewrite-modal">
+    <div class="rewrite-modal-head">
+      <button class="btn small secondary" id="rewriteRegenBtn">🔄 重新產生</button>
+      <span class="modal-close" id="closeRewrite">✕</span>
+    </div>
+    <h3>第 <span id="rewriteIndexLabel"></span> 句・選一個版本</h3>
+    <div class="sub">點選喜歡的版本再按「套用這句」；也可以先打想調整的方向，重新產生時會參考。</div>
+    <div id="rewriteOptionsArea"></div>
+    <label style="margin-top:4px;">想調整的方向 <span class="opt">(選填)</span></label>
+    <textarea id="rewriteInstructionInput" placeholder="例如：語氣更幽默一點、加強急迫感、換個切角…"></textarea>
+    <div id="rewriteModalBanner"></div>
+    <div class="btn-row">
+      <button class="btn secondary" id="cancelRewriteBtn">取消</button>
+      <button class="btn" id="applyRewriteBtn" disabled>套用這句</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const EMOTION_TAG_COLORS = {
   "故事":"#5b4a3f", "稀缺感":"#4a3f36", "認同":"#c99a3a", "恐懼":"#3f5a45",
@@ -368,6 +406,7 @@ const state = {
   summaryViewMode: "ad",
   storyFeedbackDraft: "",
   storyFeedbackLoading: false,
+  rewriteModal: { index: null, options: [], selectedIdx: null, loading: false, seenTexts: [] },
 };
 
 const STORAGE_KEY = "script_breaker_products_v1";
@@ -649,7 +688,7 @@ function renderCard(){
     document.getElementById("toSummary").onclick = () => runStep("summary");
     sentences.forEach(s => {
       const btn = document.getElementById(`rewrite-${s.index}`);
-      if(btn) btn.onclick = () => rewriteSentence(s.index);
+      if(btn) btn.onclick = () => openRewriteModal(s.index);
     });
   }
 
@@ -707,7 +746,7 @@ function renderCard(){
     if(mode === "ad"){
       sentences.forEach(s => {
         const btn = document.getElementById(`rewrite-${s.index}`);
-        if(btn) btn.onclick = () => rewriteSentence(s.index);
+        if(btn) btn.onclick = () => openRewriteModal(s.index);
       });
     }
   }
@@ -1087,27 +1126,101 @@ async function runStep(step, forceRegen){
   }
 }
 
-async function rewriteSentence(index){
-  setLoading(true);
+// ── 重寫這句：Modal，每次給 3 個版本選，按「重新產生」換一批完全不同的 ──────
+
+const rewriteModalEl = document.getElementById("rewriteModal");
+
+function openRewriteModal(index){
+  state.rewriteModal = { index, options: [], selectedIdx: null, loading: false, seenTexts: [] };
+  document.getElementById("rewriteIndexLabel").textContent = index;
+  document.getElementById("rewriteInstructionInput").value = "";
+  document.getElementById("rewriteModalBanner").innerHTML = "";
+  rewriteModalEl.classList.add("open");
+  fetchRewriteOptions();
+}
+
+function closeRewriteModal(){
+  rewriteModalEl.classList.remove("open");
+}
+
+async function fetchRewriteOptions(){
+  const rm = state.rewriteModal;
+  rm.loading = true;
+  rm.selectedIdx = null;
+  renderRewriteOptions();
+  document.getElementById("applyRewriteBtn").disabled = true;
   try{
-    const res = await api("/api/step/rewrite_sentence", {
-      product: state.product, script: state.script, index, mock: state.mock,
+    const instruction = document.getElementById("rewriteInstructionInput").value.trim();
+    const res = await api("/api/step/rewrite_sentence_options", {
+      product: state.product, script: state.script, index: rm.index,
+      instruction, exclude_texts: rm.seenTexts, mock: state.mock,
     });
     if(!res.ok){
-      showBanner("error", res.error);
-      setLoading(false);
+      rm.loading = false;
+      renderRewriteOptions();
+      document.getElementById("rewriteModalBanner").innerHTML =
+        `<div class="banner error"><span>${escapeHtml(res.error)}</span></div>`;
       return;
     }
-    const i = state.script.sentences.findIndex(s => s.index === index);
-    if(i >= 0) state.script.sentences[i] = res.data;
-    setLoading(false);
-    renderCard();
-    saveCurrentAsProduct();
+    rm.options = res.data || [];
+    rm.options.forEach(o => { if(o.text) rm.seenTexts.push(o.text); });
+    rm.loading = false;
+    renderRewriteOptions();
   } catch(e){
-    setLoading(false);
-    showBanner("error", "無法連線到後端服務（請確認「啟動.bat」的黑色視窗還開著，沒被關掉）。技術訊息：" + e.message);
+    rm.loading = false;
+    renderRewriteOptions();
+    document.getElementById("rewriteModalBanner").innerHTML =
+      `<div class="banner error"><span>無法連線到後端服務（請確認「啟動.bat」的黑色視窗還開著，沒被關掉）。技術訊息：${escapeHtml(e.message)}</span></div>`;
   }
 }
+
+function renderRewriteOptions(){
+  const rm = state.rewriteModal;
+  const el = document.getElementById("rewriteOptionsArea");
+  const regenBtn = document.getElementById("rewriteRegenBtn");
+  if(regenBtn) regenBtn.disabled = rm.loading;
+  if(rm.loading){
+    el.innerHTML = `<div class="rewrite-loading"><span class="spinner"></span>產生 3 個版本中，請稍候…</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="rewrite-options">${rm.options.map((o, i) => {
+    const tags = (o.emotion_tags||[]).map(t => `<span class="tag" style="background:${tagColor(t)}">${escapeHtml(t)}</span>`).join("");
+    return `
+      <div class="rewrite-option ${rm.selectedIdx===i?'selected':''}" data-i="${i}">
+        <input type="radio" name="rewriteOpt" ${rm.selectedIdx===i?"checked":""} />
+        <div class="rewrite-option-body">
+          <div class="text">${escapeHtml(o.text||"")}</div>
+          <div class="meta"><strong>設計目的：</strong>${escapeHtml(o.purpose||"")}${tags ? "　" + tags : ""}</div>
+          ${o.shot_suggestion ? `<div class="meta">🎬 ${escapeHtml(o.shot_suggestion)}</div>` : ""}
+        </div>
+      </div>
+    `;
+  }).join("")}</div>`;
+  el.querySelectorAll(".rewrite-option").forEach(node => {
+    node.onclick = () => {
+      state.rewriteModal.selectedIdx = parseInt(node.dataset.i, 10);
+      renderRewriteOptions();
+      document.getElementById("applyRewriteBtn").disabled = false;
+    };
+  });
+}
+
+function applyRewrite(){
+  const rm = state.rewriteModal;
+  if(rm.selectedIdx === null || rm.selectedIdx === undefined) return;
+  const chosen = rm.options[rm.selectedIdx];
+  if(!chosen) return;
+  const i = state.script.sentences.findIndex(s => s.index === rm.index);
+  if(i >= 0) state.script.sentences[i] = chosen;
+  closeRewriteModal();
+  renderCard();
+  saveCurrentAsProduct();
+}
+
+document.getElementById("rewriteRegenBtn").onclick = () => fetchRewriteOptions();
+document.getElementById("closeRewrite").onclick = closeRewriteModal;
+document.getElementById("cancelRewriteBtn").onclick = closeRewriteModal;
+document.getElementById("applyRewriteBtn").onclick = applyRewrite;
 
 const DIGIT_EMOJI = ["0️⃣","1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"];
 function numberEmoji(n){
