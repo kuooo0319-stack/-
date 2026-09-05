@@ -3,36 +3,50 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>登入 · 腳本拆解機</title>
+<title>登入 · 文案產生器</title>
 <style>
-  :root{ --gold:#d9a441; --gold-dark:#b9852c; --card:#f6f1e6; --text-dark:#2b2620; --muted:#8a8272; }
+  :root{
+    --aqua:#2ec4dc; --aqua-dark:#158fac; --text-dark:#1f3a44; --muted:#5f8a97;
+    --card-bg:rgba(255,255,255,.72); --card-border:rgba(255,255,255,.8);
+  }
   *{ box-sizing:border-box; }
+  html,body{ height:100%; }
   body{
     margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-    background:#15141a; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;
+    background:
+      radial-gradient(circle at 10% 10%, #d3eefc 0%, transparent 45%),
+      radial-gradient(circle at 92% 8%, #bfe7f2 0%, transparent 50%),
+      radial-gradient(circle at 80% 92%, #d7f5fb 0%, transparent 55%),
+      radial-gradient(circle at 12% 88%, #cdedf5 0%, transparent 50%),
+      linear-gradient(160deg, #f2fbfd 0%, #e3f6fb 100%);
+    background-attachment: fixed;
   }
   .box{
-    background:var(--card); color:var(--text-dark); border-radius:16px; padding:32px;
-    width:min(360px, 90vw); box-shadow:0 20px 60px rgba(0,0,0,.4);
+    background:var(--card-bg); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+    color:var(--text-dark); border-radius:20px; padding:32px; border:1px solid var(--card-border);
+    width:min(360px, 90vw); box-shadow:0 8px 32px rgba(46,150,180,.2);
   }
-  h1{ font-size:20px; margin:0 0 4px; }
+  h1{ font-size:20px; margin:0 0 4px; color:var(--aqua-dark); }
   .sub{ color:var(--muted); font-size:13px; margin-bottom:22px; }
-  label{ display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+  label{ display:block; font-size:13px; font-weight:700; margin-bottom:6px; color:#416570; }
   input{
-    width:100%; padding:12px 14px; border-radius:10px; border:1px solid #ddd0ac;
-    font-size:14px; margin-bottom:16px;
+    width:100%; padding:12px 14px; border-radius:12px; border:1px solid #bfe7f2;
+    background:rgba(255,255,255,.85); font-size:14px; margin-bottom:16px; color:var(--text-dark);
   }
+  input:focus{ outline:2px solid var(--aqua); outline-offset:1px; }
   button{
-    width:100%; padding:12px; border-radius:10px; border:none; background:var(--gold);
-    color:#2b2100; font-weight:700; font-size:14px; cursor:pointer;
+    width:100%; padding:12px; border-radius:999px; border:none;
+    background:linear-gradient(120deg,var(--aqua),#57b8e0); box-shadow:0 6px 18px rgba(46,196,220,.35);
+    color:#fff; font-weight:700; font-size:14px; cursor:pointer;
   }
-  button:hover{ background:var(--gold-dark); }
-  .err{ background:#fbe4e8; color:#8a1f36; border:1px solid #f0b7c2; border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:16px; }
+  button:hover{ filter:brightness(1.05); }
+  .err{ background:#ffe3ea; color:#9a2c50; border:1px solid #ffc0d4; border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:16px; }
 </style>
 </head>
 <body>
   <form class="box" method="post" action="/login">
-    <h1>腳本拆解機</h1>
+    <h1>文案產生器</h1>
     <div class="sub">請輸入密碼繼續</div>
     <!--ERROR-->
     <label>密碼</label>
