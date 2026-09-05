@@ -432,12 +432,24 @@ def step_script(
         "每一句都要有明確的設計目的、情緒標籤，以及具體到可以直接照著拍的畫面建議。全程使用繁體中文回覆。"
     )
     story_hint_lines = []
+    want_story = bool(product.emotion or product.story_request or product.story_length)
     if product.emotion:
         story_hint_lines.append(f"想帶入的情緒基調：{product.emotion}")
     if product.story_request:
-        story_hint_lines.append(f"使用者想帶入的第一人稱故事／使用心得引導：{product.story_request}")
+        story_hint_lines.append(
+            f"使用者提供的故事方向／關鍵字（這只是大方向參考，不是要你照抄，"
+            f"請你自己延伸、原創寫成完整通順的第一人稱故事）：{product.story_request}"
+        )
+    else:
+        if want_story:
+            story_hint_lines.append(
+                "使用者沒有另外打故事內容，請你完全自己原創一段第一人稱使用心得故事，"
+                "只依照上面的情緒基調與產品資訊自由發揮即可。"
+            )
     if product.story_length:
-        story_hint_lines.append(f"故事長度偏好：{product.story_length}")
+        story_hint_lines.append(
+            f"故事長度偏好（請讓故事段落的總字數盡量落在這個範圍內，不要明顯超過或差太多）：{product.story_length}"
+        )
     story_hint = ("\n" + "\n".join(story_hint_lines) + "\n") if story_hint_lines else ""
     user = (
         f"產品名稱：{product.name}\n"
@@ -449,7 +461,12 @@ def step_script(
         f"{story_hint}\n"
         f"請依照以上資訊，寫出約 {sentence_count} 句的完整逐字稿，"
         "每句都要標註設計目的、使用的情緒催化劑（情緒標籤），以及這一句實際拍攝時的畫面建議，"
-        + ("如果有提供情緒基調或故事引導，請把它自然融入逐字稿的口吻與情節裡，讓整篇讀起來像真實的第一人稱使用心得。" if story_hint_lines else "")
+        + (
+            "只要有指定情緒基調、故事方向或故事長度任何一項，整篇逐字稿都要寫成一段真實自然、"
+            "連貫的第一人稱使用心得故事（不是條列式賣點堆砌），並自然融入情緒與畫面轉折，"
+            "字數要符合故事長度偏好（如果有提供的話）。"
+            if want_story else ""
+        )
         + "最後一句要導向明確的行動呼籲（例如購買連結、限時優惠）。"
         "最後也請附上一份腳本自我檢查表，逐條說明這支腳本是怎麼做到每個關鍵元素的。"
     )
