@@ -56,6 +56,9 @@ class ProductInfo:
     details: str
     audience: str = ""
     price: str = ""
+    emotion: str = ""          # 想帶入的情緒基調，例如：開心、困擾、難過、驚喜、感動，或使用者自訂文字
+    story_request: str = ""    # 使用者想帶入的第一人稱故事／使用心得引導（例如「像自己真的用過的心得」）
+    story_length: str = ""     # 故事長度偏好，例如：短／中／長，或「自訂:300字」
 
 
 @dataclass
@@ -412,23 +415,43 @@ def step_script(
                 "description": f"逐字稿，依序約 {sentence_count} 句",
                 "items": _sentence_schema(),
             },
+            "element_checklist": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "腳本自我檢查表，5-7 條，每條都寫成「標籤：具體說明這支腳本怎麼做到的」的完整句子，"
+                    "涵蓋：開頭鉤子、關鍵畫面、目標受眾是否對準、情緒催化劑是否貫穿全篇、"
+                    "問題與解決方案是否清楚、行動呼籲是否明確"
+                ),
+            },
         },
-        "required": ["title", "sentences"],
+        "required": ["title", "sentences", "element_checklist"],
     }
     system = (
         "你是短影音廣告的逐字稿寫手兼分鏡師，擅長用真實、口語化的第一人稱口吻寫腳本，"
         "每一句都要有明確的設計目的、情緒標籤，以及具體到可以直接照著拍的畫面建議。全程使用繁體中文回覆。"
     )
+    story_hint_lines = []
+    if product.emotion:
+        story_hint_lines.append(f"想帶入的情緒基調：{product.emotion}")
+    if product.story_request:
+        story_hint_lines.append(f"使用者想帶入的第一人稱故事／使用心得引導：{product.story_request}")
+    if product.story_length:
+        story_hint_lines.append(f"故事長度偏好：{product.story_length}")
+    story_hint = ("\n" + "\n".join(story_hint_lines) + "\n") if story_hint_lines else ""
     user = (
         f"產品名稱：{product.name}\n"
         f"產品細節：{product.details}\n"
         f"價格帶：{product.price or '未提供'}\n"
         f"內容定位：{json.dumps(positioning, ensure_ascii=False)}\n"
         f"受眾洞察：{json.dumps(audience, ensure_ascii=False)}\n"
-        f"情緒與標題設計：{json.dumps(emotion_and_title, ensure_ascii=False)}\n\n"
+        f"情緒與標題設計：{json.dumps(emotion_and_title, ensure_ascii=False)}\n"
+        f"{story_hint}\n"
         f"請依照以上資訊，寫出約 {sentence_count} 句的完整逐字稿，"
         "每句都要標註設計目的、使用的情緒催化劑（情緒標籤），以及這一句實際拍攝時的畫面建議，"
-        "最後一句要導向明確的行動呼籲（例如購買連結、限時優惠）。"
+        + ("如果有提供情緒基調或故事引導，請把它自然融入逐字稿的口吻與情節裡，讓整篇讀起來像真實的第一人稱使用心得。" if story_hint_lines else "")
+        + "最後一句要導向明確的行動呼籲（例如購買連結、限時優惠）。"
+        "最後也請附上一份腳本自我檢查表，逐條說明這支腳本是怎麼做到每個關鍵元素的。"
     )
     return call_structured(cfg, system, user, schema, "full_script", on_progress=on_progress)
 
@@ -534,7 +557,15 @@ def mock_pipeline(product: ProductInfo) -> PipelineResult:
         }
         for i in range(12)
     ]
-    script = {"title": emotion["recommended_title"], "sentences": sentences}
+    checklist = [
+        "開頭鉤子：第一句用懸念留住觀眾",
+        "關鍵畫面：每句都有具體可拍的畫面建議",
+        "目標受眾：內容用語對準設定的受眾輪廓",
+        "情緒催化劑：恐懼／慾望／認同交錯貫穿全篇",
+        "問題與解決方案：先痛點再解法，脈絡清楚",
+        "行動呼籲：最後一句有明確的購買/行動指引",
+    ]
+    script = {"title": emotion["recommended_title"], "sentences": sentences, "element_checklist": checklist}
     summary = {
         "resonance_reasons": [
             "用真實口吻串全程，讓目標受眾高度代入",
@@ -591,6 +622,12 @@ def render_markdown(result: PipelineResult) -> str:
             lines.append(f"畫面建議：{s.get('shot_suggestion', '')}")
         lines.append("")
 
+    if result.script.get("element_checklist"):
+        lines.append("## 腳本元素檢查表")
+        for item in result.script.get("element_checklist", []):
+            lines.append(f"✅ {item}")
+        lines.append("")
+
     lines.append("## 這支影片會打中受眾的原因")
     for r in result.summary.get("resonance_reasons", []):
         lines.append(f"- {r}")
@@ -602,3 +639,197 @@ def render_markdown(result: PipelineResult) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+# ── 其他同行怎麼做：用供應商內建的網路搜尋能力找真實參考 ─────────────────
+#
+# 這裡刻意不接第三方搜尋 API，只用使用者已經設定好的 AI 供應商內建搜尋功能
+# （Anthropic 的 web_search 工具、Gemini 的 Google 搜尋 grounding），這樣不用
+# 多申請帳號、多一筆費用；代價是如果供應商不支援，這塊功能就沒辦法用。
+
+def _competitor_prompt(product: ProductInfo, positioning: dict) -> str:
+    return (
+        f"請幫我上網搜尋跟「{product.name}」類似的熱門商品，在蝦皮、PChome、天貓、淘寶、"
+        "抖音商城等平台上目前看起來流量、評價、互動比較活躍的賣場或商品頁面（不是隨便找到就好，"
+        "要主動避開明顯是殭屍賣場、零評價、內容農場式的低品質結果）。"
+        "找 3-5 個參考，每個都要包含：賣場/商品名稱、重點摘要（他們用什麼切角寫文案、主打什麼賣點、"
+        "定價策略是什麼、有沒有值得借鏡或該避開的地方），並附上原始連結。\n\n"
+        f"我自己的產品名稱：{product.name}\n"
+        f"產品細節：{product.details}\n"
+        f"內容定位：{json.dumps(positioning, ensure_ascii=False)}\n\n"
+        "請用繁體中文回覆，摘要精簡但要有具體洞察，不要只是條列賣場名稱。"
+    )
+
+
+def _dedupe_sources(sources: list[dict]) -> list[dict]:
+    seen = set()
+    out = []
+    for s in sources:
+        url = (s.get("url") or "").strip()
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        out.append({"title": s.get("title") or url, "url": url})
+    return out
+
+
+def _search_anthropic(cfg: ProviderConfig, product: ProductInfo, positioning: dict) -> dict:
+    try:
+        import anthropic
+    except ImportError as e:
+        raise GenerationError("缺少 anthropic 套件，請先執行：pip install -r requirements.txt") from e
+
+    client = anthropic.Anthropic(api_key=cfg.api_key)
+    try:
+        resp = client.messages.create(
+            model=cfg.resolved_model(),
+            max_tokens=2048,
+            tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}],
+            messages=[{"role": "user", "content": _competitor_prompt(product, positioning)}],
+        )
+    except Exception as e:  # noqa: BLE001
+        raise GenerationError(
+            f"呼叫 Anthropic 網路搜尋失敗：{e}（有些帳號/方案需要另外開通網路搜尋功能，"
+            "可以到 Anthropic 的主控台確認這個功能是否已啟用）"
+        ) from e
+
+    text_parts, sources = [], []
+    for block in resp.content:
+        block_type = getattr(block, "type", None)
+        if block_type == "text":
+            text_parts.append(getattr(block, "text", "") or "")
+            for citation in (getattr(block, "citations", None) or []):
+                url = getattr(citation, "url", None)
+                title = getattr(citation, "title", None)
+                if url:
+                    sources.append({"title": title, "url": url})
+    return {
+        "supported": True,
+        "summary": "\n".join(text_parts).strip(),
+        "sources": _dedupe_sources(sources),
+        "note": "",
+    }
+
+
+def _search_gemini_native(cfg: ProviderConfig, product: ProductInfo, positioning: dict) -> dict:
+    try:
+        import requests
+    except ImportError as e:
+        raise GenerationError("缺少 requests 套件，請先執行：pip install -r requirements.txt") from e
+
+    model = cfg.resolved_model() or "gemini-3.6-flash"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    body = {
+        "contents": [{"parts": [{"text": _competitor_prompt(product, positioning)}]}],
+        "tools": [{"google_search": {}}],
+    }
+    try:
+        resp = requests.post(url, params={"key": cfg.api_key}, json=body, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:  # noqa: BLE001
+        raise GenerationError(f"呼叫 Gemini 網路搜尋失敗：{e}") from e
+
+    try:
+        candidate = data["candidates"][0]
+        text = "".join(p.get("text", "") for p in candidate.get("content", {}).get("parts", []))
+    except (KeyError, IndexError) as e:
+        raise GenerationError(f"Gemini 搜尋回覆格式不如預期：{data}") from e
+
+    sources = []
+    grounding = candidate.get("groundingMetadata", {}) or {}
+    for chunk in grounding.get("groundingChunks", []) or []:
+        web = chunk.get("web", {}) or {}
+        if web.get("uri"):
+            sources.append({"title": web.get("title"), "url": web["uri"]})
+
+    return {
+        "supported": True,
+        "summary": text.strip(),
+        "sources": _dedupe_sources(sources),
+        "note": "",
+    }
+
+
+def _search_openai(cfg: ProviderConfig, product: ProductInfo, positioning: dict) -> dict:
+    try:
+        from openai import OpenAI
+    except ImportError as e:
+        raise GenerationError("缺少 openai 套件，請先執行：pip install -r requirements.txt") from e
+
+    client = OpenAI(api_key=cfg.api_key)
+    try:
+        resp = client.responses.create(
+            model=cfg.resolved_model() or "gpt-4.1",
+            input=_competitor_prompt(product, positioning),
+            tools=[{"type": "web_search"}],
+        )
+    except Exception as e:  # noqa: BLE001
+        raise GenerationError(
+            f"呼叫 OpenAI 網路搜尋失敗：{e}（web_search 工具需要帳號支援 Responses API，"
+            "有些帳號/模型可能還不支援）"
+        ) from e
+
+    text = getattr(resp, "output_text", "") or ""
+    sources = []
+    for item in getattr(resp, "output", None) or []:
+        for content in getattr(item, "content", None) or []:
+            for ann in getattr(content, "annotations", None) or []:
+                url = getattr(ann, "url", None)
+                title = getattr(ann, "title", None)
+                if url:
+                    sources.append({"title": title, "url": url})
+
+    return {
+        "supported": True,
+        "summary": text.strip(),
+        "sources": _dedupe_sources(sources),
+        "note": "",
+    }
+
+
+def search_competitor_references(cfg: ProviderConfig, product: ProductInfo, positioning: dict) -> dict:
+    """回傳 {"supported": bool, "summary": str, "sources": [{"title","url"}], "note": str}。
+
+    只用使用者已設定好的供應商內建搜尋能力，不額外接第三方搜尋 API：
+    - anthropic → Claude 的 web_search 工具
+    - custom 且 base_url 指到 Gemini → Gemini 原生 API 的 Google 搜尋 grounding
+    - openai → Responses API 的 web_search 工具
+    - 其他（DeepSeek/Kimi/Qwen/自架服務等）→ 明確告知不支援，不會假裝生出結果
+    """
+    if not cfg.api_key:
+        raise GenerationError("尚未設定 API 金鑰，請先在設定裡填入。")
+
+    if cfg.provider == "anthropic":
+        return _search_anthropic(cfg, product, positioning)
+    if cfg.provider == "custom" and "generativelanguage.googleapis.com" in (cfg.base_url or ""):
+        return _search_gemini_native(cfg, product, positioning)
+    if cfg.provider == "openai":
+        return _search_openai(cfg, product, positioning)
+
+    return {
+        "supported": False,
+        "summary": "",
+        "sources": [],
+        "note": (
+            "目前選擇的供應商不支援即時網路搜尋，這個功能暫時無法使用（為了不讓你看到假的賣場連結，"
+            "這裡選擇誠實顯示「不支援」，而不是生一個看起來像真的但其實是編造的答案）。"
+            "可以在設定裡切換成 Anthropic 或 Gemini（自訂供應商）來使用這個功能。"
+        ),
+    }
+
+
+def mock_competitor_references(product: ProductInfo) -> dict:
+    return {
+        "supported": True,
+        "summary": (
+            f"（模擬資料）市場上跟「{product.name}」類似的熱銷商品，大多主打「情境代入＋前後對比」的切角，"
+            "文案節奏偏向先痛點、後解方，價格帶集中在中低價位並強調限時優惠與贈品，"
+            "評價高的賣場通常會放真人使用影片與素人見證強化信任感。"
+        ),
+        "sources": [
+            {"title": "（模擬）蝦皮熱銷賣場範例", "url": "https://shopee.tw/"},
+            {"title": "（模擬）PChome 商品頁範例", "url": "https://www.pchome.com.tw/"},
+        ],
+        "note": "",
+    }

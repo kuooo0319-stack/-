@@ -132,6 +132,9 @@ def _product_from_json(data: dict) -> core.ProductInfo:
         details=(data.get("details") or "").strip(),
         audience=(data.get("audience") or "").strip(),
         price=(data.get("price") or "").strip(),
+        emotion=(data.get("emotion") or "").strip(),
+        story_request=(data.get("story_request") or "").strip(),
+        story_length=(data.get("story_length") or "").strip(),
     )
 
 
@@ -298,6 +301,20 @@ def api_summary():
         if data.get("mock"):
             return core.mock_pipeline(product).summary
         return core.step_summary(_current_cfg, product, audience, script)
+
+    return _handle(run)
+
+
+@app.post("/api/step/competitor_research")
+def api_competitor_research():
+    data = request.get_json(force=True) or {}
+    product = _product_from_json(data.get("product", {}))
+    positioning = data.get("positioning", {})
+
+    def run():
+        if data.get("mock"):
+            return core.mock_competitor_references(product)
+        return core.search_competitor_references(_current_cfg, product, positioning)
 
     return _handle(run)
 
