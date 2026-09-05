@@ -101,6 +101,7 @@
   .card h2{ margin:0 0 4px; font-size:22px; color:var(--pink-dark); }
   .card h3{ margin:0 0 4px; font-size:17px; color:var(--pink-dark); }
   .card .desc{ color:var(--muted); font-size:13px; margin-bottom:18px; }
+  .eyebrow-label{ font-size:12px; font-weight:800; letter-spacing:1.5px; color:var(--pink); margin-bottom:4px; }
 
   label{ display:block; font-size:13px; font-weight:700; margin:14px 0 6px; color:#7a5c6e; }
   label .opt{ font-weight:400; color:var(--muted); }
@@ -163,6 +164,8 @@
   .checklist li{ font-size:14px; line-height:1.7; margin-bottom:6px; padding-left:26px; position:relative; }
   .checklist li:before{ content:"✅"; position:absolute; left:0; top:0; font-size:13px; }
 
+  .story-block{ font-size:15.5px; line-height:2.1; white-space:pre-wrap; }
+
   .banner{ padding:12px 16px; border-radius:14px; font-size:13px; margin-bottom:16px; display:flex; justify-content:space-between; gap:10px; align-items:center; }
   .banner.error{ background:#ffe3ea; color:#9a2c50; border:1px solid #ffc0d4; }
   .banner.info{ background:#eaf6ee; color:#2c6a41; border:1px solid #c9e8d1; }
@@ -208,6 +211,27 @@
   .tip-list{ margin:0; padding-left:18px; }
   .tip-list li{ font-size:13px; line-height:1.7; color:#6b5464; margin-bottom:8px; }
 
+  .competitor-summary{ font-size:13.5px; }
+  .competitor-summary .competitor-entry-title{
+    font-weight:700; color:var(--pink-dark); margin:12px 0 4px; padding-top:10px;
+    border-top:1px dashed var(--card-border);
+  }
+  .competitor-summary .competitor-entry-title:first-child{ border-top:none; padding-top:0; margin-top:0; }
+  .competitor-summary .competitor-line{ line-height:1.8; margin-bottom:3px; color:#6b5464; }
+  .competitor-summary ul.plain{ margin:4px 0 8px; }
+  .competitor-summary ul.plain li{ font-size:13.5px; }
+
+  .story-paragraphs{ margin-bottom:6px; }
+  .story-para{
+    background:rgba(255,255,255,.72); border:1px solid var(--card-border); border-radius:14px;
+    padding:12px 14px; margin-bottom:10px; font-size:13.5px; line-height:1.85; color:#4a3140;
+  }
+  .story-para-idx{
+    display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%;
+    background:linear-gradient(120deg,var(--pink),var(--lavender)); color:#fff; font-size:11px; font-weight:700;
+    margin-right:8px; vertical-align:middle;
+  }
+
   footer{ text-align:center; padding:24px; color:#9c7f92; font-size:12px; }
 
   @media (max-width: 980px){
@@ -248,7 +272,7 @@
       <div class="tab locked" data-tab="positioning">內容定位<span class="dot" style="display:none"></span></div>
       <div class="tab locked" data-tab="audience">受眾確認<span class="dot" style="display:none"></span></div>
       <div class="tab locked" data-tab="emotion">情緒與標題<span class="dot" style="display:none"></span></div>
-      <div class="tab locked" data-tab="script">逐字稿<span class="dot" style="display:none"></span></div>
+      <div class="tab locked" data-tab="script">宣傳文案<span class="dot" style="display:none"></span></div>
       <div class="tab locked" data-tab="summary">總結<span class="dot" style="display:none"></span></div>
     </div>
 
@@ -276,7 +300,10 @@
     </select>
 
     <label>API 金鑰</label>
-    <input type="password" id="apiKeyInput" placeholder="已儲存金鑰時留空＝沿用原本的" autocomplete="off" />
+    <div style="display:flex; gap:8px; align-items:stretch;">
+      <input type="password" id="apiKeyInput" placeholder="已儲存金鑰時留空＝沿用原本的" autocomplete="off" style="flex:1" />
+      <button type="button" class="btn ghost small" id="toggleKeyVisibility" style="white-space:nowrap;">👁 顯示</button>
+    </div>
     <div class="field-hint" id="apiKeyHint"></div>
 
     <label>模型名稱 <span class="opt">（選填，留空用預設值）</span></label>
@@ -339,6 +366,9 @@ const state = {
   competitorLoading: false,
   _emotionCustomMode: false,
   _storyLenCustomMode: false,
+  summaryViewMode: "ad",
+  storyFeedbackDraft: "",
+  storyFeedbackLoading: false,
 };
 
 const STORAGE_KEY = "script_breaker_products_v1";
@@ -386,6 +416,9 @@ function loadProduct(id){
   state.competitor = entry.data.competitor || null;
   state._emotionCustomMode = false;
   state._storyLenCustomMode = false;
+  state.summaryViewMode = "ad";
+  state.storyFeedbackDraft = "";
+  state.storyFeedbackLoading = false;
   switchTab("product");
   renderAll();
 }
@@ -403,6 +436,9 @@ function resetProduct(){
   state.script = null; state.summary = null; state.selectedTitle = null;
   state.competitor = null; state.competitorLoading = false;
   state._emotionCustomMode = false; state._storyLenCustomMode = false;
+  state.summaryViewMode = "ad";
+  state.storyFeedbackDraft = "";
+  state.storyFeedbackLoading = false;
   switchTab("product");
   renderAll();
 }
@@ -589,8 +625,9 @@ function renderCard(){
     const totalChars = sentences.reduce((sum,x)=> sum + (x.text||"").length, 0);
     const estSeconds = Math.round(totalChars / 4.3); // 中文口語約 4~4.5 字/秒
     el.innerHTML = `
+      <div class="eyebrow-label">宣傳文案</div>
       <h2>${escapeHtml(s.title || "完整逐字稿")}</h2>
-      <div class="desc">條列式呈現：每一點把設計目的與情緒催化劑合併說明，並附上畫面建議，可個別重寫。右邊可以看看同行都怎麼做。</div>
+      <div class="desc">條列式呈現：每一點把設計目的與情緒催化劑合併說明，並附上畫面建議，可個別重寫。右邊是完整故事內容，可以打想法請 AI 調整。</div>
       ${loadingHtml}
       <div class="stat-row">
         <div class="stat"><b>${sentences.length}</b>句</div>
@@ -619,11 +656,35 @@ function renderCard(){
 
   else if(state.activeTab === "summary"){
     const sum = state.summary || {};
+    const s = state.script || {sentences:[]};
+    const sentences = s.sentences || [];
+    const checklist = s.element_checklist || [];
+    if(!state.summaryViewMode) state.summaryViewMode = "ad";
+    const mode = state.summaryViewMode;
+
+    const adContentHtml = `
+      <ul class="bullet-list">${sentences.map(renderSentenceCard).join("")}</ul>
+      ${checklist.length ? `
+        <div class="info-block" style="margin-top:4px;">
+          <div class="label">腳本元素檢查表</div>
+          <ul class="checklist">${checklist.map(c => `<li>${escapeHtml(c)}</li>`).join("")}</ul>
+        </div>
+      ` : ""}
+    `;
+    const storyContentHtml = `
+      <div class="info-block story-block">${escapeHtml(fullScriptText())}</div>
+    `;
+
     el.innerHTML = `
       <h2>總結</h2>
-      <div class="desc">這支影片會打中受眾的原因，與 AI 自主分析的後續優化／引流建議。右邊可以看看同行都怎麼做。</div>
+      <div class="desc">先看完整內容——文宣是條列式拆解，故事是完整讀起來的版本；下面還有打中受眾的原因與後續優化建議。右邊可以看看同行都怎麼做。</div>
       ${loadingHtml}
-      <div class="info-block">
+      <div class="btn-row" style="margin-top:0; margin-bottom:16px;">
+        <button class="btn ${mode==='ad' ? '' : 'secondary'} small" id="viewAdBtn">📋 文宣（條列式）</button>
+        <button class="btn ${mode==='story' ? '' : 'secondary'} small" id="viewStoryBtn">📖 故事（完整內容）</button>
+      </div>
+      ${mode === "story" ? storyContentHtml : adContentHtml}
+      <div class="info-block" style="margin-top:18px;">
         <div class="label">這支影片會打中受眾的原因</div>
         <ul class="plain">${(sum.resonance_reasons||[]).map(r=>`<li>${escapeHtml(r)}</li>`).join("")}</ul>
       </div>
@@ -638,10 +699,18 @@ function renderCard(){
         <button class="btn ghost" id="downloadJson">下載 JSON</button>
       </div>
     `;
+    document.getElementById("viewAdBtn").onclick = () => { state.summaryViewMode = "ad"; renderCard(); };
+    document.getElementById("viewStoryBtn").onclick = () => { state.summaryViewMode = "story"; renderCard(); };
     document.getElementById("regenSummary").onclick = () => runStep("summary", true);
     document.getElementById("copyBtn").onclick = copyFullScript;
     document.getElementById("downloadMd").onclick = downloadMarkdown;
     document.getElementById("downloadJson").onclick = downloadJson;
+    if(mode === "ad"){
+      sentences.forEach(s => {
+        const btn = document.getElementById(`rewrite-${s.index}`);
+        if(btn) btn.onclick = () => rewriteSentence(s.index);
+      });
+    }
   }
 
   renderTabs();
@@ -678,7 +747,10 @@ function renderSidePanel(){
   if(state.activeTab === "product"){
     el.innerHTML = productSidePanelHtml();
     wireProductSidePanel();
-  } else if(state.activeTab === "script" || state.activeTab === "summary"){
+  } else if(state.activeTab === "script"){
+    el.innerHTML = storySidePanelHtml();
+    wireStorySidePanel();
+  } else if(state.activeTab === "summary"){
     el.innerHTML = competitorSidePanelHtml();
     wireCompetitorSidePanel();
   } else {
@@ -766,6 +838,67 @@ function wireProductSidePanel(){
   }
 }
 
+function storySidePanelHtml(){
+  const s = state.script || {sentences:[]};
+  const paragraphs = (s.sentences || []).map(x => x.text || "").filter(Boolean);
+  const feedback = state.storyFeedbackDraft || "";
+
+  return `
+    <h3>故事內容</h3>
+    <div class="desc">完整故事，一段一段呈現。想調整可以在下面打想法，AI 會依照你的回饋修改，其他沒提到的部分會盡量保留。</div>
+    ${state.storyFeedbackLoading ? `<div class="banner info"><span class="spinner"></span>&nbsp;調整中，請稍候…</div>` : ""}
+    <div class="story-paragraphs">
+      ${paragraphs.length
+        ? paragraphs.map((p,i) => `<div class="story-para"><span class="story-para-idx">${i+1}</span>${escapeHtml(p)}</div>`).join("")
+        : `<div class="desc" style="margin:0">尚未產生故事內容。</div>`
+      }
+    </div>
+    <label>你的修改想法</label>
+    <textarea id="storyFeedbackInput" placeholder="例如：第三段太平淡，想再加強一點期待感；結尾想更明確導向下單">${escapeHtml(feedback)}</textarea>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn secondary small" id="applyStoryFeedbackBtn" ${state.storyFeedbackLoading?"disabled":""}>依想法調整故事</button>
+    </div>
+  `;
+}
+
+function wireStorySidePanel(){
+  const input = document.getElementById("storyFeedbackInput");
+  if(input) input.addEventListener("input", e => { state.storyFeedbackDraft = e.target.value; });
+  const btn = document.getElementById("applyStoryFeedbackBtn");
+  if(btn) btn.onclick = applyStoryFeedback;
+}
+
+async function applyStoryFeedback(){
+  const feedback = (state.storyFeedbackDraft || "").trim();
+  if(!feedback){
+    showBanner("warn", "請先在右邊「故事內容」打你想調整的想法。");
+    return;
+  }
+  clearBanners();
+  state.storyFeedbackLoading = true;
+  renderSidePanel();
+  try{
+    const res = await api("/api/step/revise_script", {
+      product: state.product, positioning: state.positioning, audience: state.audience,
+      emotion_title: state.emotionTitle, script: state.script, feedback, mock: state.mock,
+    });
+    state.storyFeedbackLoading = false;
+    if(!res.ok){
+      showBanner("error", res.error || "調整失敗，請再試一次。");
+      renderSidePanel();
+      return;
+    }
+    state.script = res.data;
+    state.storyFeedbackDraft = "";
+    renderCard();
+    saveCurrentAsProduct();
+  } catch(e){
+    state.storyFeedbackLoading = false;
+    showBanner("error", "無法連線到後端服務（請確認「啟動.bat」的黑色視窗還開著）。技術訊息：" + e.message);
+    renderSidePanel();
+  }
+}
+
 function tipsSidePanelHtml(tab){
   const tips = {
     positioning: [
@@ -792,6 +925,53 @@ function tipsSidePanelHtml(tab){
   `;
 }
 
+// 有些供應商的網路搜尋回覆還是會夾雜 Markdown 語法（#、**、- 清單），
+// 這裡做一層輕量轉換：去掉那些符號、轉成統一的條列樣式，並保留粗體與連結的語意。
+function stripLeadingNumber(s){
+  return s.replace(/^\d+[.)、]\s*/, "");
+}
+function inlineFormat(s){
+  let t = escapeHtml(s);
+  t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  t = t.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  return t;
+}
+function renderLightMarkdown(text){
+  const lines = (text || "").split("\n");
+  let html = "";
+  let inList = false;
+  const closeList = () => { if(inList){ html += "</ul>"; inList = false; } };
+  for(let raw of lines){
+    const line = raw.trim();
+    if(!line){ closeList(); continue; }
+    if(/^#{0,6}\s*-{3,}\s*$/.test(line)){ closeList(); continue; }
+
+    const headerMatch = /^#{1,6}\s*(.*)$/.exec(line);
+    if(headerMatch){
+      closeList();
+      html += `<div class="competitor-entry-title">🏪 ${inlineFormat(stripLeadingNumber(headerMatch[1]))}</div>`;
+      continue;
+    }
+
+    const bulletMatch = /^[-*•]\s+(.*)$/.exec(line);
+    if(bulletMatch){
+      if(!inList){ html += `<ul class="plain">`; inList = true; }
+      html += `<li>${inlineFormat(bulletMatch[1])}</li>`;
+      continue;
+    }
+
+    closeList();
+    if(/^(🏪|🎯|💰|💡|🔗)/.test(line)){
+      html += `<div class="competitor-line">${inlineFormat(line)}</div>`;
+    } else {
+      html += `<div style="margin-bottom:6px;">${inlineFormat(line)}</div>`;
+    }
+  }
+  closeList();
+  return html || `<div style="color:var(--muted)">（沒有摘要內容）</div>`;
+}
+
 function competitorSidePanelHtml(){
   const c = state.competitor;
   let body = `<div class="desc" style="margin-top:-6px">尚未搜尋。點下面按鈕，讓 AI 用你目前設定的供應商，搜尋同類產品在網路上流量比較好的賣場／文案做參考（會自動避開殭屍賣場）。</div>`;
@@ -804,7 +984,7 @@ function competitorSidePanelHtml(){
     } else {
       const sources = c.sources || [];
       body = `
-        <div class="info-block"><div class="label">重點摘要</div><div class="value" style="white-space:pre-wrap">${escapeHtml(c.summary || "（沒有摘要內容）")}</div></div>
+        <div class="info-block"><div class="label">重點摘要</div><div class="value competitor-summary">${renderLightMarkdown(c.summary)}</div></div>
         ${sources.length ? `
           <div class="label" style="font-size:12px; color:var(--pink-dark); font-weight:700; margin:10px 0 4px;">參考來源</div>
           <ul class="source-list">${sources.map(s => `<li><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title || s.url)}</a></li>`).join("")}</ul>
@@ -930,9 +1110,18 @@ async function rewriteSentence(index){
   }
 }
 
+const DIGIT_EMOJI = ["0️⃣","1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"];
+function numberEmoji(n){
+  if(n === 10) return "🔟";
+  return String(n).split("").map(d => DIGIT_EMOJI[parseInt(d,10)] || "").join("");
+}
+
 function fullScriptText(){
   const s = state.script || {sentences:[]};
-  return (s.sentences||[]).map(x => x.text).join("\n");
+  const sentences = s.sentences || [];
+  // 條列式：每一句前面加編號 emoji，貼到別的地方（例如 Discord）也看得出是一條一條的重點，
+  // 不是黏成一大坨的段落。
+  return sentences.map((x, i) => `${numberEmoji(x.index || (i + 1))} ${x.text || ""}`).join("\n\n");
 }
 
 async function copyFullScript(){
@@ -1047,18 +1236,36 @@ async function loadConfig(){
   document.getElementById("modelInput").value = cfg.model || "";
   document.getElementById("baseUrlInput").value = cfg.base_url || "";
   document.getElementById("baseUrlField").style.display = cfg.provider === "custom" ? "block" : "none";
+  // 這裡清空是因為伺服器本來就不會把已存的明文金鑰傳回來給瀏覽器顯示（安全考量），
+  // 不是「清掉你剛存的東西」——那個情況已經改成不會清空了，見下面 saveSettingsBtn。
   document.getElementById("apiKeyInput").value = "";
-  setApiKeyHint(cfg.has_api_key);
+  document.getElementById("apiKeyInput").type = "password";
+  document.getElementById("toggleKeyVisibility").textContent = "👁 顯示";
+  setApiKeyHint(cfg.has_api_key, false);
   document.getElementById("persistCheckbox").checked = cfg.persisted;
   document.getElementById("mockCheckbox").checked = state.mock;
   document.getElementById("settingsBanner").innerHTML = "";
 }
 
-function setApiKeyHint(hasKey){
-  document.getElementById("apiKeyHint").innerHTML = hasKey
-    ? '<span style="color:#2c7a3d">✓ 目前已有儲存的金鑰。</span>這裡留空並不會清掉它，儲存時會自動沿用。'
-    : "尚未設定金鑰。";
+function setApiKeyHint(hasKey, justSaved){
+  document.getElementById("apiKeyHint").innerHTML = justSaved
+    ? '<span style="color:#2c7a3d; font-weight:700;">✓ 已成功儲存——上面欄位裡的內容就是剛剛存進去的金鑰，不會消失。</span>'
+    : hasKey
+      ? '<span style="color:#2c7a3d">✓ 目前已有儲存的金鑰。</span>這裡留空並不會清掉它，儲存時會自動沿用。'
+      : "尚未設定金鑰。";
 }
+
+document.getElementById("toggleKeyVisibility").onclick = () => {
+  const input = document.getElementById("apiKeyInput");
+  const btn = document.getElementById("toggleKeyVisibility");
+  if(input.type === "password"){
+    input.type = "text";
+    btn.textContent = "🙈 隱藏";
+  } else {
+    input.type = "password";
+    btn.textContent = "👁 顯示";
+  }
+};
 
 document.getElementById("saveSettingsBtn").onclick = async () => {
   const body = readSettingsForm();
@@ -1070,15 +1277,14 @@ document.getElementById("saveSettingsBtn").onclick = async () => {
   state.mock = document.getElementById("mockCheckbox").checked;
   const res = await api("/api/config", body);
   if(res.ok){
-    // 注意：金鑰欄位存完會清空，這是刻意的（後端不會把明文金鑰傳回瀏覽器顯示），
-    // 不是沒存到——下面的橫幅與提示文字會明確告訴你已經存好了。
+    // 刻意「不」清空金鑰欄位：你剛剛打了什麼，存完還是看得到同樣的內容，
+    // 不會平白消失，這樣才知道真的存成功了。
     const cfgRes = await fetch("/api/config");
     const cfg = await cfgRes.json();
-    document.getElementById("apiKeyInput").value = "";
-    setApiKeyHint(cfg.has_api_key);
+    setApiKeyHint(cfg.has_api_key, true);
     document.getElementById("persistCheckbox").checked = cfg.persisted;
     document.getElementById("settingsBanner").innerHTML =
-      `<div class="banner info">✓ 設定已儲存（供應商：${escapeHtml(cfg.provider)}${cfg.has_api_key ? "，金鑰已記錄" : ""}）。金鑰欄位清空是正常的，不代表沒存到。</div>`;
+      `<div class="banner info">✅ 已成功儲存！供應商：${escapeHtml(cfg.provider)}${cfg.has_api_key ? "，金鑰已記錄在伺服器上" : ""}。</div>`;
   } else {
     document.getElementById("settingsBanner").innerHTML = `<div class="banner error">${escapeHtml(res.error||"儲存失敗")}</div>`;
   }
