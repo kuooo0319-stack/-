@@ -270,6 +270,22 @@ def api_script():
     return _handle(run)
 
 
+@app.post("/api/step/story")
+def api_story():
+    data = request.get_json(force=True) or {}
+    product = _product_from_json(data.get("product", {}))
+    positioning = data.get("positioning", {})
+    audience = data.get("audience", {})
+    emotion_title = data.get("emotion_title", {})
+
+    def run():
+        if data.get("mock"):
+            return core.mock_pipeline(product).story
+        return core.step_story(_current_cfg, product, positioning, audience, emotion_title)
+
+    return _handle(run)
+
+
 @app.post("/api/step/rewrite_sentence")
 def api_rewrite_sentence():
     data = request.get_json(force=True) or {}
@@ -314,24 +330,24 @@ def api_rewrite_sentence_options():
     return _handle(run)
 
 
-@app.post("/api/step/revise_script")
-def api_revise_script():
+@app.post("/api/step/revise_story")
+def api_revise_story():
     data = request.get_json(force=True) or {}
     product = _product_from_json(data.get("product", {}))
     positioning = data.get("positioning", {})
     audience = data.get("audience", {})
     emotion_title = data.get("emotion_title", {})
-    script = data.get("script", {})
+    story = data.get("story", {})
     feedback = (data.get("feedback") or "").strip()
 
     def run():
         if not feedback:
             raise core.GenerationError("請先在右邊輸入你想調整的想法，再送出。")
         if data.get("mock"):
-            sentences = script.get("sentences", [])
-            updated = [{**s, "text": (s.get("text") or "") + "（已依回饋調整-模擬）"} for s in sentences]
-            return {**script, "sentences": updated}
-        return core.step_revise_script(_current_cfg, product, positioning, audience, emotion_title, script, feedback)
+            paragraphs = story.get("paragraphs", [])
+            updated = [(p or "") + "（已依回饋調整-模擬）" for p in paragraphs]
+            return {**story, "paragraphs": updated}
+        return core.step_revise_story(_current_cfg, product, positioning, audience, emotion_title, story, feedback)
 
     return _handle(run)
 
@@ -376,6 +392,7 @@ def export_markdown():
         audience_confirmation=data.get("audience", {}),
         emotion_and_title=data.get("emotion_title", {}),
         script=data.get("script", {}),
+        story=data.get("story", {}),
         summary=data.get("summary", {}),
     )
     md = core.render_markdown(result)

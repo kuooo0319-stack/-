@@ -68,6 +68,7 @@ class PipelineResult:
     audience_confirmation: dict = field(default_factory=dict)
     emotion_and_title: dict = field(default_factory=dict)
     script: dict = field(default_factory=dict)
+    story: dict = field(default_factory=dict)
     summary: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -428,14 +429,55 @@ def step_script(
         "required": ["title", "sentences", "element_checklist"],
     }
     system = (
-        "你是短影音廣告的逐字稿寫手兼分鏡師，擅長用真實、口語化的第一人稱口吻寫腳本，"
-        "每一句都要有明確的設計目的、情緒標籤，以及具體到可以直接照著拍的畫面建議。全程使用繁體中文回覆。"
-        "每一句的文字（text 欄位）本身可以在情緒起伏比較大的地方，句尾偶爾加一個貼切的 emoji 來加強情緒，"
-        "但不要每一句都加、也不要一句塞好幾個，整篇大概兩三句才出現一次就好，抓最需要加強情緒的地方使用，"
-        "讀起來要像真人在打字，不是罐頭式地每句都貼表情符號。"
+        "你是短影音廣告的逐字稿寫手兼分鏡師，擅長寫短、直接、一句一個賣點或鉤子的條列式廣告文案"
+        "（例如「我很少對產品這麼有信心，這次是例外」這種風格：短句、口語化、節奏快，"
+        "每一句都獨立成立，不是連貫的故事或心得文），每一句都要有明確的設計目的、情緒標籤，"
+        "以及具體到可以直接照著拍的畫面建議。全程使用繁體中文回覆。"
     )
+    emotion_hint = f"\n想帶入的情緒基調（影響文案的語氣，但不要因此寫成故事）：{product.emotion}\n" if product.emotion else ""
+    user = (
+        f"產品名稱：{product.name}\n"
+        f"產品細節：{product.details}\n"
+        f"價格帶：{product.price or '未提供'}\n"
+        f"內容定位：{json.dumps(positioning, ensure_ascii=False)}\n"
+        f"受眾洞察：{json.dumps(audience, ensure_ascii=False)}\n"
+        f"情緒與標題設計：{json.dumps(emotion_and_title, ensure_ascii=False)}\n"
+        f"{emotion_hint}\n"
+        f"請依照以上資訊，寫出約 {sentence_count} 句條列式廣告文案，"
+        "每一句都要直接切中一個賣點、鉤子或情緒催化劑，句子之間不需要銜接成故事情節，"
+        "每句都要標註設計目的、使用的情緒催化劑（情緒標籤），以及這一句實際拍攝時的畫面建議，"
+        "最後一句要導向明確的行動呼籲（例如購買連結、限時優惠）。"
+        "最後也請附上一份腳本自我檢查表，逐條說明這支腳本是怎麼做到每個關鍵元素的。"
+    )
+    return call_structured(cfg, system, user, schema, "full_script", on_progress=on_progress)
+
+
+def step_story(
+    cfg: ProviderConfig,
+    product: ProductInfo,
+    positioning: dict,
+    audience: dict,
+    emotion_and_title: dict,
+    on_progress=None,
+) -> dict:
+    """跟 step_script（條列式廣告文案）是完全分開的兩份產出——這裡固定寫一段完整的
+    第一人稱故事／使用心得，讀起來要像真人在分享真實經歷，不是賣點堆疊。"""
+    schema = {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string", "description": "故事的標題/開頭鉤子"},
+            "paragraphs": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "故事內容，依序分成好幾個自然段落（每段大約 2-4 句），"
+                    "讀起來要像真人分享真實使用心得的完整故事，不是條列式賣點"
+                ),
+            },
+        },
+        "required": ["title", "paragraphs"],
+    }
     story_hint_lines = []
-    want_story = bool(product.emotion or product.story_request or product.story_length)
     if product.emotion:
         story_hint_lines.append(f"想帶入的情緒基調：{product.emotion}")
     if product.story_request:
@@ -444,36 +486,34 @@ def step_script(
             f"請你自己延伸、原創寫成完整通順的第一人稱故事）：{product.story_request}"
         )
     else:
-        if want_story:
-            story_hint_lines.append(
-                "使用者沒有另外打故事內容，請你完全自己原創一段第一人稱使用心得故事，"
-                "只依照上面的情緒基調與產品資訊自由發揮即可。"
-            )
+        story_hint_lines.append(
+            "使用者沒有另外打故事方向，請你完全自己原創一段第一人稱使用心得故事，"
+            "只依照產品資訊、受眾洞察與情緒基調自由發揮即可。"
+        )
     if product.story_length:
         story_hint_lines.append(
             f"故事長度偏好（請讓故事段落的總字數盡量落在這個範圍內，不要明顯超過或差太多）：{product.story_length}"
         )
-    story_hint = ("\n" + "\n".join(story_hint_lines) + "\n") if story_hint_lines else ""
+    story_hint = "\n" + "\n".join(story_hint_lines) + "\n"
+    system = (
+        "你是短影音廣告的故事寫手，現在要寫一段真實自然、連貫的第一人稱使用心得故事"
+        "（不是條列式賣點堆砌、也不是廣告口號句子），要讀起來像真人在分享自己的真實經歷，"
+        "自然融入產品資訊、受眾洞察與情緒轉折。全程使用繁體中文回覆。"
+        "故事內容本身可以在情緒起伏比較大的地方，句尾偶爾加一個貼切的 emoji 來加強情緒，"
+        "但不要每一句都加、也不要一句塞好幾個，整篇大概兩三句才出現一次就好，抓最需要加強情緒的地方使用，"
+        "讀起來要像真人在打字，不是罐頭式地每句都貼表情符號。"
+    )
     user = (
         f"產品名稱：{product.name}\n"
         f"產品細節：{product.details}\n"
-        f"價格帶：{product.price or '未提供'}\n"
         f"內容定位：{json.dumps(positioning, ensure_ascii=False)}\n"
         f"受眾洞察：{json.dumps(audience, ensure_ascii=False)}\n"
         f"情緒與標題設計：{json.dumps(emotion_and_title, ensure_ascii=False)}\n"
         f"{story_hint}\n"
-        f"請依照以上資訊，寫出約 {sentence_count} 句的完整逐字稿，"
-        "每句都要標註設計目的、使用的情緒催化劑（情緒標籤），以及這一句實際拍攝時的畫面建議，"
-        + (
-            "只要有指定情緒基調、故事方向或故事長度任何一項，整篇逐字稿都要寫成一段真實自然、"
-            "連貫的第一人稱使用心得故事（不是條列式賣點堆砌），並自然融入情緒與畫面轉折，"
-            "字數要符合故事長度偏好（如果有提供的話）。"
-            if want_story else ""
-        )
-        + "最後一句要導向明確的行動呼籲（例如購買連結、限時優惠）。"
-        "最後也請附上一份腳本自我檢查表，逐條說明這支腳本是怎麼做到每個關鍵元素的。"
+        "請把這個故事寫成好幾個自然分段（用 paragraphs 陣列呈現，每個元素是一段，不要加編號），"
+        "整體要有起承轉合，結尾自然帶到對這個產品的肯定或推薦，不用生硬的行動呼籲字句。"
     )
-    return call_structured(cfg, system, user, schema, "full_script", on_progress=on_progress)
+    return call_structured(cfg, system, user, schema, "story", on_progress=on_progress)
 
 
 def step_rewrite_sentence(
@@ -556,45 +596,38 @@ def step_rewrite_sentence_options(
     return options
 
 
-def step_revise_script(
+def step_revise_story(
     cfg: ProviderConfig,
     product: ProductInfo,
     positioning: dict,
     audience: dict,
     emotion_and_title: dict,
-    script: dict,
+    story: dict,
     feedback: str,
     on_progress=None,
 ) -> dict:
-    """依照使用者對故事內容提出的修改想法，調整既有的整篇逐字稿／故事——
-    跟 step_rewrite_sentence 不同的是這裡可以一次調整多句、甚至整體節奏，
-    但盡量保留使用者沒有要求修改的部分，不是整篇重新亂寫。"""
-    sentences = script.get("sentences", []) or []
-    sentence_count = len(sentences) or 12
+    """依照使用者對故事內容提出的修改想法，調整既有的故事——這裡改的是故事（第一人稱心得），
+    跟廣告文案（step_rewrite_sentence_options 改的條列式賣點句）是分開的兩份內容。
+    盡量保留使用者沒有要求修改的段落，不是整篇重新亂寫。"""
+    paragraphs = story.get("paragraphs", []) or []
+    paragraph_count = len(paragraphs) or 5
     schema = {
         "type": "object",
         "properties": {
-            "title": {"type": "string", "description": "採用的標題/開頭鉤子"},
-            "sentences": {
-                "type": "array",
-                "description": f"調整後的逐字稿，依序約 {sentence_count} 句",
-                "items": _sentence_schema(),
-            },
-            "element_checklist": {
+            "title": {"type": "string", "description": "故事的標題/開頭鉤子"},
+            "paragraphs": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": (
-                    "腳本自我檢查表，5-7 條，每條都寫成「標籤：具體說明這支腳本怎麼做到的」的完整句子"
-                ),
+                "description": f"調整後的故事內容，依序約 {paragraph_count} 段，每個元素是一段",
             },
         },
-        "required": ["title", "sentences", "element_checklist"],
+        "required": ["title", "paragraphs"],
     }
     system = (
-        "你是短影音廣告的逐字稿寫手兼分鏡師，現在要依照使用者對故事內容提出的修改想法來調整既有逐字稿，"
+        "你是短影音廣告的故事寫手，現在要依照使用者對故事內容提出的修改想法來調整既有故事，"
         "而不是整篇重寫成完全不同的內容——除非使用者的想法本來就是要求大改，否則盡量保留原本沒被提到、"
-        "使用者沒有要求修改的句子與情節走向，只針對回饋的地方調整。全程使用繁體中文回覆。"
-        "每一句的文字（text 欄位）本身可以在情緒起伏比較大的地方，句尾偶爾加一個貼切的 emoji 來加強情緒，"
+        "使用者沒有要求修改的段落與情節走向，只針對回饋的地方調整。全程使用繁體中文回覆。"
+        "故事內容本身可以在情緒起伏比較大的地方，句尾偶爾加一個貼切的 emoji 來加強情緒，"
         "但不要每一句都加，整篇大概兩三句才出現一次就好，讀起來要像真人在打字，不是每句都貼表情符號。"
     )
     user = (
@@ -603,13 +636,11 @@ def step_revise_script(
         f"內容定位：{json.dumps(positioning, ensure_ascii=False)}\n"
         f"受眾洞察：{json.dumps(audience, ensure_ascii=False)}\n"
         f"情緒與標題設計：{json.dumps(emotion_and_title, ensure_ascii=False)}\n"
-        f"原本的逐字稿／故事：{json.dumps(script, ensure_ascii=False)}\n\n"
+        f"原本的故事：{json.dumps(story, ensure_ascii=False)}\n\n"
         f"使用者對故事內容提出的修改想法：{feedback}\n\n"
-        f"請依照這個想法調整逐字稿，維持約 {sentence_count} 句，"
-        "每句一樣要標註設計目的、使用的情緒催化劑（情緒標籤），以及這一句實際拍攝時的畫面建議，"
-        "最後也請附上一份更新後的腳本自我檢查表。"
+        f"請依照這個想法調整故事，維持約 {paragraph_count} 段自然分段。"
     )
-    return call_structured(cfg, system, user, schema, "revise_script", on_progress=on_progress)
+    return call_structured(cfg, system, user, schema, "revise_story", on_progress=on_progress)
 
 
 def step_summary(cfg: ProviderConfig, product: ProductInfo, audience: dict, script: dict, on_progress=None) -> dict:
@@ -694,6 +725,14 @@ def mock_pipeline(product: ProductInfo) -> PipelineResult:
         "行動呼籲：最後一句有明確的購買/行動指引",
     ]
     script = {"title": emotion["recommended_title"], "sentences": sentences, "element_checklist": checklist}
+    story = {
+        "title": f"（模擬故事）{emotion['recommended_title']}",
+        "paragraphs": [
+            f"（模擬故事段落 1）以前對這類產品一直半信半疑，直到朋友推薦了「{product.name}」，才決定試試看。",
+            f"（模擬故事段落 2）用了幾次之後發現，{product.details or '它的細節'}比想像中更貼心，完全不用花時間適應。",
+            f"（模擬故事段落 3）現在已經是日常生活的一部分了，身邊朋友問起我都直接推薦「{product.name}」。",
+        ],
+    }
     summary = {
         "resonance_reasons": [
             "用真實口吻串全程，讓目標受眾高度代入",
@@ -708,6 +747,7 @@ def mock_pipeline(product: ProductInfo) -> PipelineResult:
         audience_confirmation=audience,
         emotion_and_title=emotion,
         script=script,
+        story=story,
         summary=summary,
     )
 
@@ -755,6 +795,15 @@ def render_markdown(result: PipelineResult) -> str:
         for item in result.script.get("element_checklist", []):
             lines.append(f"✅ {item}")
         lines.append("")
+
+    if result.story.get("paragraphs"):
+        lines.append("## 故事內容")
+        if result.story.get("title"):
+            lines.append(f"**{result.story.get('title')}**")
+            lines.append("")
+        for para in result.story.get("paragraphs", []):
+            lines.append(para)
+            lines.append("")
 
     lines.append("## 這支影片會打中受眾的原因")
     for r in result.summary.get("resonance_reasons", []):
