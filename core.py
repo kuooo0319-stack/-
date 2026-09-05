@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-腳本拆解機 — 核心生成邏輯（provider-agnostic）
+文案產生器 — 核心生成邏輯（provider-agnostic）
 
 被 app.py（網頁介面）與 script_breaker_cli.py（命令列）共用。
 支援三種 API 供應商：

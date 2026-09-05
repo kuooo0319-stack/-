@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-腳本拆解機 — 網頁版後端 (Flask)
+文案產生器 — 網頁版後端 (Flask)
 
 本機執行：
     pip install -r requirements.txt
@@ -365,7 +365,7 @@ def _open_browser():
 
 if __name__ == "__main__":
     import threading
-    print("腳本拆解機網頁版啟動中…瀏覽器會自動開啟，若沒有請手動開啟 http://127.0.0.1:5000")
+    print("文案產生器網頁版啟動中…瀏覽器會自動開啟，若沒有請手動開啟 http://127.0.0.1:5000")
     print("=" * 60)
     print("⚠️  這個黑色視窗就是伺服器本體，使用網頁的時候請不要關閉！")
     print("    可以把它縮到最小，但按下 X 關閉會讓網頁變成「無法連線」。")

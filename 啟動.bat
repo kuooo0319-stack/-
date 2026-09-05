@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-title 腳本拆解機
+title 文案產生器
 
 set "PYTHON_CMD="
 
